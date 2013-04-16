@@ -10,6 +10,25 @@
       <Platform>Win32</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\disp.h" />
+    <ClInclude Include="include\Gz.h" />
+    <ClInclude Include="include\model.h" />
+    <ClInclude Include="include\rend.h" />
+    <ClInclude Include="include\render_wrapper.h" />
+    <ClInclude Include="include\shaders.h" />
+    <ClInclude Include="include\utilities.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\disp.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\model.cpp" />
+    <ClCompile Include="src\rend.cpp" />
+    <ClCompile Include="src\render_wrapper.cpp" />
+    <ClCompile Include="src\shaders.cpp" />
+    <ClCompile Include="src\tex_fun.cpp" />
+    <ClCompile Include="src\utilities.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{D4C3C817-A565-4C3C-A75F-25B46A86CC42}</ProjectGuid>
     <RootNamespace>water_rendering</RootNamespace>
@@ -42,6 +61,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <CompileAs>Default</CompileAs>
+      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -53,6 +73,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -60,13 +81,6 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="render_wrapper.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="render_wrapper.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

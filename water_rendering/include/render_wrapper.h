@@ -10,4 +10,14 @@ struct BackBuffer
 /*
 * All the rendering related stuffs goes here
 */
-void render(struct BackBuffer* bf);
+int render(BackBuffer* bf);
+
+/*
+* Initialize the render
+*/
+int init_render(int x_res, int y_res);
+
+/*
+* Release the render
+*/
+int release_render();

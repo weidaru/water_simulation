@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "render_wrapper.h"
 
 HWND winhwnd;
 int window_width =800;
 int window_height = 600;
-struct BackBuffer back_buffer;
+BackBuffer back_buffer;
 TCHAR * win_name = TEXT("Water") ;
 
 // prototypes
@@ -18,6 +19,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 inline void draw()
 {
+	time_t t = clock();
+
 	render(&back_buffer);
 
 	HDC winhdc = GetDC( winhwnd ) ;
@@ -38,6 +41,11 @@ inline void draw()
 
 	// And we just want a straight copy.
 	SRCCOPY );
+
+	int fps = CLOCKS_PER_SEC/(clock() - (float)t);
+	char buffer[128];
+	sprintf(buffer, "FPS: %d", fps);
+	TextOutA(winhdc, 20, 20, buffer, strlen(buffer));
 
 	ReleaseDC( winhwnd, winhdc ) ;
 }
@@ -178,27 +186,42 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 // WndProc - "Window procedure" function
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-  switch(message)
-  {
-  case WM_CREATE:
-    {
-      // As soon as the window is first created, create
-      // the back buffer.
-      InitBackBuffer() ;
+	switch(message)
+	{
+	case WM_CREATE:
+	{
+		// As soon as the window is first created, create
+		// the back buffer.
+		init_render(window_width, window_height);
+		InitBackBuffer() ;
 
-      return 0;
-    }
-    break;
+		return 0;
+	}
+	break;
+	case WM_PAINT:
+		{
+			PAINTSTRUCT	ps;
 
-  case WM_DESTROY:
-    {
-      PostQuitMessage(0);
-      return 0;
-    }
-    break;
-  }
+			HDC winhdc = BeginPaint(hwnd, &ps);
 
-  // If message was NOT handled by us, we pass it off to
-  // the windows operating system to handle it.
-  return DefWindowProc(hwnd, message, wParam, lParam);
+			// Do nothing here.  All drawing happens in draw(),
+			// and you draw to the backbuffer, NOT the
+			// front buffer.
+
+			EndPaint(hwnd, &ps);
+			return 0;
+		}
+		break;
+
+	case WM_DESTROY:
+	{
+		PostQuitMessage(0);
+		return 0;
+	}
+	break;
+	}
+
+	// If message was NOT handled by us, we pass it off to
+	// the windows operating system to handle it.
+	return DefWindowProc(hwnd, message, wParam, lParam);
 }
