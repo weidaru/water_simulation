@@ -19,6 +19,12 @@ static bool IsPointToLeftOfLine(int x, int y, GzCoord* v0, GzCoord* v1);
 static bool DepthTest(GzDisplay* display, int x, int y, GzDepth z);
 static void YBasedScanLine(GzRender* render, const PixelShaderInput p[2], PixelShaderInput* buffer, int* count);
 static void DrawLine(GzRender* render,  int numLines, GzCoord* vertices, int* indices);
+struct Line
+{
+	int x1,y1;
+	int x2,y2;
+};
+static bool BoxLineIntersect(int box_w, int box_h, int x1, int y1, int x2, int y2, Line* result);
 
 
 int GzRotXMat(float degree, GzMatrix mat)
@@ -268,7 +274,7 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 	render->v_shader(render, numParts, nameList, valueList, vs_output);
 
 	//Triangle Interpolation**************************************************************
-	static PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres];
+	PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres*2];
 	int count = 0;
 	ScanLineTriangleInterpolation(render, vs_output, buffer, &count);
 
@@ -280,14 +286,8 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 		render->p_shader(render, input, color);
 		if(DepthTest(render->display, input.positon[0], input.positon[1], input.positon[2]))
 		{
-			if((int)input.positon[0] == 117 && (int)input.positon[1] == 83)
-			{
-				int dummy = 0;
-				dummy++;
-			}
-
 			GzPutDisplay(render->display, input.positon[0], input.positon[1],
-				ctoi(color[0]), ctoi(color[1]), ctoi(color[2]), 1.0f, input.positon[2] );
+				ctoi(color[0]), ctoi(color[1]), ctoi(color[2]), input.alpha, input.positon[2] );
 		}
 	}
 
@@ -302,6 +302,7 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 	render->flatcolor[1] = oldColor[1];
 	render->flatcolor[2] = oldColor[2];
 
+	delete[] buffer;
 	return GZ_SUCCESS;
 }
 
@@ -572,13 +573,17 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 	vertices[1][1] = (int)vertices[1][1];
 	vertices[2][0] = (int)vertices[2][0];
 	vertices[2][1] = (int)vertices[2][1];
+
+	//OPT: Find the intersection with screen rect, then do scanline.
+
 	PixelShaderInput p[2];
 	p[0].Assign(vertices[0], normals[0], textures[0], colors[0]);
 	p[1].Assign(vertices[0], normals[0], textures[0], colors[0]);
 
 	YBasedScanLine(render, p, buffer, count);
 
-	float y = (vertices[0][1]+1.0f);
+	float y = (vertices[0][1]+1.0f) > 0.0f ? (vertices[0][1]+1.0f) : 0.0f;
+	y = y < render->display->yres ? y : render->display->yres-1;
 	float x0 = vertices[0][0], x1 = vertices[1][0], x2 = vertices[2][0];
 	float y0 = vertices[0][1], y1 = vertices[1][1], y2 = vertices[2][1];
 	float z0 = vertices[0][2], z1 = vertices[1][2], z2 = vertices[2][2];
@@ -586,7 +591,10 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 			y1_c = y1*ZMAX/(ZMAX-z1), 
 			y2_c = y2*ZMAX/(ZMAX-z2);
 
-	for(; y <= y2; y++)
+	float first_thres = y2;
+	first_thres = first_thres > 0.0f ? first_thres : 0.0f;
+	first_thres = first_thres < render->display->yres ? first_thres : render->display->yres-1;
+	for(; y <= first_thres; y++)
 	{
 		float x_0= x0 + (y-y0)/(y1-y0)*(x1-x0);
 		float y_0 = y;
@@ -669,7 +677,10 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 		YBasedScanLine(render, p, buffer, count);
 	}
 
-	for(; y <= y1; y++)
+	float second_thres = y1;
+	second_thres = second_thres > 0.0f ? second_thres : 0.0f;
+	second_thres = second_thres < render->display->yres ? second_thres : render->display->yres-1;
+	for(; y <= second_thres; y++)
 	{
 		float x_0 = x0 + (y-y0)/(y1-y0)*(x1-x0);
 		float y_0 = y;
@@ -766,11 +777,18 @@ void YBasedScanLine(GzRender* render, const PixelShaderInput p_raw[2], PixelShad
 	float c0_inv = 1.0f/c0, c1_inv = 1.0f/c1;
 	float x0_c = x0 * c0, x1_c = x1 * c1;
 	
-	buffer[*count].Assign(p[0].positon, p[0].normal, p[0].texture, p[0].color);
-	(*count)++;
+	if(x0 >= 0.0f && x0 <= render->display->xres)
+	{
+		buffer[*count].Assign(p[0].positon, p[0].normal, p[0].texture, p[0].color);
+		(*count)++;
+	}
 
-
-	for(float x = x0+1, y = p[0].positon[1]; x<x1; x++)
+	float x = x0+1, y = 0.0f;
+	x = x > 0.0f ? x : 0.0f;
+	x = x < render->display->xres ? x : render->display->xres;
+	float thres = x1 > 0.0f ? x1 : 0.0f;
+	thres = thres < render->display->xres ? thres : render->display->xres;
+	for( x = x0+1, y = p[0].positon[1]; x<thres; x++)
 	{
 		float z = z0 + (x-x0)/(x1-x0)*(z1-z0);
 		float x_c = x * ZMAX/(ZMAX - z);
@@ -801,8 +819,12 @@ void YBasedScanLine(GzRender* render, const PixelShaderInput p_raw[2], PixelShad
 		}
 		(*count)++;
 	}
-	buffer[*count].Assign(p[1].positon, p[1].normal, p[1].texture, p[1].color);
-	(*count)++;
+	if(x1 >= 0.0f && x1 <= render->display->xres)
+	{
+		buffer[*count].Assign(p[1].positon, p[1].normal, p[1].texture, p[1].color);
+		(*count)++;
+	}
+
 }
 
 bool IsPointToLeftOfLine(int x, int y, GzCoord* v0, GzCoord* v1)
@@ -830,3 +852,137 @@ bool DepthTest(GzDisplay* display, int x, int y, GzDepth z)
 		return false;
 }
 
+bool BoxLineIntersect(int box_w, int box_h, int x1, int y1, int x2, int y2, Line* result)
+{
+	//check point inside box
+	bool p1_inside = false, p2_inside = false;
+	if(x1 >= 0 && x1 < box_w && y1 >= 0 && y1 < box_h)
+		p1_inside = true;
+	if(x2 >= 0 && x2 < box_w && y2 >= 0 && y2 < box_h)
+		p2_inside = true;
+
+	if(p1_inside)
+	{
+		result->x1 = x1;
+		result->y1 = y1;
+	}
+	if(p2_inside)
+	{
+		result->x2 = x2;
+		result->y2 = y2;
+	}
+
+	if(p1_inside && p2_inside)
+		return true;
+	else
+	{
+		int dx = x2-x1, dy = y2-y1;
+		//intersect with x = 0
+		float t[4] = {-1.0f};
+		bool intersect[4] = {false};
+		int count = 0;
+		if(x2 != x1)
+		{
+			t[0]  = -x1*1.0f/dx;
+			if(t[0] >= 0.0f && t[0] <= 1.0f)
+			{
+				float temp = (y1+t[0]*dy)/box_h;
+				if(temp >= 0.0f && temp <= 1.0f)
+				{
+					intersect[0] = true;
+					count ++;
+				}
+			}
+		}
+		//intersect with x=box_w
+		if(x2 != x1)
+		{
+			t[1] = (box_w - x1)*1.0f/dx;
+			if(t[1] >= 0.0f && t[1] <= 1.0f)
+			{
+				float temp = (y1+t[1]*dy)/box_h;
+				if(temp >= 0.0f && temp <= 1.0f)
+				{
+					intersect[1] = true;
+					count ++;
+				}
+			}
+		}
+		//intersect with y=0
+		if(y2 != y1)
+		{
+			t[2] = -y1*1.0f/dy;
+			if(t[2] >= 0.0f && t[2] <= 1.0f)
+			{
+				float temp = (x1+t[2]*dx)/box_w;
+				if(temp >= 0.0f && temp <= 1.0f)
+				{
+					intersect[2] = true;
+					count++;
+				}
+			}
+		}
+		//intersect with y=box_h
+		if(x2 != x1)
+		{
+			t[3] = (box_h - y1)*1.0f/dy;
+			if(t[3] >= 0.0f && t[3] <= 1.0f)
+			{
+				float temp = (x1+t[3]*dx)/box_w;
+				if(temp >= 0.0f && temp <= 1.0f)
+				{
+					intersect[3] = true;
+					count++;
+				}
+			}
+		}
+		assert(count <= 2);
+		if(!p1_inside && !p2_inside)
+		{
+			if(count != 2)
+				return false;
+			float t_s=2.0f, t_b=-1.0f;
+			for(int i=0; i<4; i++)
+			{
+				if(intersect[i])
+				{
+					if(t[i] > t_b)
+						t_b = t[i];
+					if(t[i] < t_s)
+						t_s = t[i];
+				}
+			}
+			result->x1 = x1+t_s*dx;
+			result->y1 = y1+t_s*dy;
+			result->x2 = x1+t_b*dx;
+			result->y2 = y1+t_b*dy;
+			return true;
+		}
+		else if(p1_inside)
+		{
+			assert(count == 1);
+			for(int i=0; i<4; i++)
+			{
+				if(intersect[i])
+				{
+					result->x2 = x1+t[i]*dx;
+					result->y2 = y1+t[i]*dy;
+					return true;
+				}
+			}
+		}
+		else		//p2_inside
+		{
+			assert(count == 1);
+			for(int i=0; i<4; i++)
+			{
+				if(intersect[i])
+				{
+					result->x1 = x1+t[i]*dx;
+					result->y1 = y1+t[i]*dy;
+					return true;
+				}
+			}
+		}
+	}
+}

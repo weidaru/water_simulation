@@ -1,16 +1,17 @@
 /*   CS580 HW   */
 #include	"Gz.h"
 #include	"disp.h"
-#include "stdio.h"
+#include <stdio.h>
+#include <string.h>
 
 namespace
 {
-GzPixel* GetPixelFromDisplay(GzDisplay* display, int row, int col) 
+inline GzPixel* GetPixelFromDisplay(GzDisplay* display, int row, int col) 
 {
 	return display->fbuf + row*display->xres + col;
 }
 
-char GzIntensityToChar(GzIntensity g) 
+inline char GzIntensityToChar(GzIntensity g) 
 {
 	int gi = (int)(g/4095.0f*255.0f);
 	return gi>255 ? 255:gi;
@@ -172,4 +173,15 @@ int GzFlushDisplay2FrameBuffer(char* framebuffer, GzDisplay *display)
 		}
 	}
 	return GZ_SUCCESS;
+}
+
+int GzCopyDisplay(GzDisplay* des, GzDisplay* src)
+{
+	des->xres = src->xres;
+	des->yres = src->yres;
+	des->open = src->open;
+	des->dispClass = des->dispClass;
+	memcpy(des->fbuf, src->fbuf, src->xres*src->yres*sizeof(GzPixel));
+
+	return 1;
 }

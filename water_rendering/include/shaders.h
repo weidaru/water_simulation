@@ -9,6 +9,8 @@ struct PixelShaderInput
 	GzCoord normal;
 	GzTextureIndex texture;
 	GzColor color;
+	//alpha vary from 0 to 100
+	GzIntensity alpha;	
 
 	static bool lerp_normal;
 	static bool lerp_texture;
@@ -35,6 +37,8 @@ void FlatPixelShader(GzRender* render, const PixelShaderInput& input, GzColor co
 
 void GouraudVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void GouraudPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);
+
+void GouraudAlphaPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);
 
 void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);

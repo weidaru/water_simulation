@@ -50,5 +50,6 @@ int GzGetDisplay(GzDisplay *display, int i, int j,
 		GzIntensity *r, GzIntensity *g, GzIntensity *b, GzIntensity *a, GzDepth	*z);
 int GzFlushDisplay2File(FILE* outfile, GzDisplay *display);
 int GzFlushDisplay2FrameBuffer(char* framebuffer, GzDisplay* display);
+int GzCopyDisplay(GzDisplay* des, GzDisplay* src);
 
 #endif		//DISP_H_

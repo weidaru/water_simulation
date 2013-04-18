@@ -113,49 +113,61 @@ void FlatPixelShader(GzRender* render, const PixelShaderInput& input, GzColor co
 void GouraudVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
 {
 	ReadInput(render, numParts, nameList, valueList, vs_output);
-	vs_output->lerp_texture = true;
+	vs_output->lerp_color = true;
 
+	for(int i=0; i<3; i++)
+	{
+		GzCoord view = {0.0f, 0.0f, -1.0f};
+		GzCoord n_i;
+		Scale(vs_output[i].normal, 1.0, n_i);
+		Normalize(n_i);
+
+		for(int j=0; j<3; j++)
+		{
+			float add_value;
+			//Ambient
+			add_value = render->Ka[j]*render->ambientlight.color[j];	
+			vs_output[i].color[j] =  Clamp(add_value, 0.0f, 1.0f);
+			for(int k=0; k<render->numlights; k++)
+			{
+				float d_n_v = Dot(n_i, view);
+				float d_n_i = Dot(n_i, render->lights[k].direction);
+				GzCoord n;
+				Scale(n_i, 1.0, n);
+				if(d_n_v * d_n_i < 0)
+					continue;
+				else if(d_n_v < 0 && d_n_i < 0)
+					Scale(n_i, -1.0, n);
+
+				//Diffuse
+				add_value = render->Kd[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
+				vs_output[i].color[j] +=  Clamp(add_value, 0.0f, 1.0f);
+				GzCoord reflection;
+				GzCoord temp;
+				Scale(n, 2*Dot(n, render->lights[k].direction), temp);
+				VectorSubtract(temp, render->lights[k].direction, reflection);
+				//Specular
+				add_value= render->Ks[j] * render->lights[k].color[j] * pow(Dot(reflection, view), render->spec);
+				vs_output[i].color[j] +=  Clamp(add_value, 0.0f, 1.0f);
+			}
+			vs_output[i].color[j] =  Clamp(vs_output[i].color[j], 0.0f, 1.0f);
+		}
+	}
 }
 
 void GouraudPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
-	GzCoord view = {0.0f, 0.0f, -1.0f};
-	GzCoord n_i;
-	Scale(input.normal, 1.0, n_i);
-	Normalize(n_i);
-	GzColor texture_color;
-	render->tex_fun(input.texture[0], input.texture[1], texture_color);
+	color[0] = input.color[0];
+	color[1] = input.color[1];
+	color[2] = input.color[2];
+}
 
-	for(int j=0; j<3; j++)
-	{
-		float add_value;
-		//Ambient
-		add_value = texture_color[j]*render->ambientlight.color[j];	
-		color[j] =  Clamp(add_value, 0.0f, 1.0f);
-		for(int k=0; k<render->numlights; k++)
-		{
-			float d_n_v = Dot(n_i, view);
-			float d_n_i = Dot(n_i, render->lights[k].direction);
-			GzCoord n;
-			Scale(n_i, 1.0, n);
-			if(d_n_v * d_n_i < 0)
-				continue;
-			else if(d_n_v < 0 && d_n_i < 0)
-				Scale(n_i, -1.0, n);
-
-			//Diffuse
-			add_value = texture_color[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
-			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
-			GzCoord reflection;
-			GzCoord temp;
-			Scale(n, 2*Dot(n, render->lights[k].direction), temp);
-			VectorSubtract(temp, render->lights[k].direction, reflection);
-			//Specular
-			add_value= texture_color[j] * render->lights[k].color[j] * pow(Dot(reflection, view), render->spec);
-			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
-		}
-		color[j] =  Clamp(color[j], 0.0f, 1.0f);
-	}
+void GouraudAlphaPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
+{
+	color[0] = input.color[0];
+	color[1] = input.color[1];
+	color[2] = input.color[2];
+	const_cast<PixelShaderInput&>(input).alpha = 100;
 }
 
 void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
@@ -171,14 +183,12 @@ void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor c
 	GzCoord n_i;
 	Scale(input.normal, 1.0, n_i);
 	Normalize(n_i);
-	GzColor texture_color;
-	render->tex_fun(input.texture[0], input.texture[1], texture_color);
 
 	for(int j=0; j<3; j++)
 	{
 		float add_value;
 		//Ambient
-		add_value = texture_color[j]*render->ambientlight.color[j];	
+		add_value = render->Ka[j]*render->ambientlight.color[j];	
 		color[j] =  Clamp(add_value, 0.0f, 1.0f);
 		for(int k=0; k<render->numlights; k++)
 		{
@@ -192,7 +202,7 @@ void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor c
 				Scale(n_i, -1.0, n);
 
 			//Diffuse
-			add_value = texture_color[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
+			add_value = render->Kd[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
 			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
 			GzCoord reflection;
 			GzCoord temp;
