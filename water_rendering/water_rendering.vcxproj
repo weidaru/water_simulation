@@ -13,7 +13,10 @@
   <ItemGroup>
     <ClInclude Include="include\disp.h" />
     <ClInclude Include="include\Gz.h" />
-    <ClInclude Include="include\model.h" />
+    <ClInclude Include="include\Model.h" />
+    <ClInclude Include="include\ModelFactory.h" />
+    <ClInclude Include="include\ModelImpAI.h" />
+    <ClInclude Include="include\ModelImpASC.h" />
     <ClInclude Include="include\rend.h" />
     <ClInclude Include="include\render_wrapper.h" />
     <ClInclude Include="include\shaders.h" />
@@ -22,7 +25,9 @@
   <ItemGroup>
     <ClCompile Include="src\disp.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="src\model.cpp" />
+    <ClCompile Include="src\ModelFactory.cpp" />
+    <ClCompile Include="src\ModelImpAI.cpp" />
+    <ClCompile Include="src\ModelImpASC.cpp" />
     <ClCompile Include="src\rend.cpp" />
     <ClCompile Include="src\render_wrapper.cpp" />
     <ClCompile Include="src\shaders.cpp" />
@@ -61,10 +66,12 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <CompileAs>Default</CompileAs>
-      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\assimp\include;include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\assimp\lib\assimp_release-dll_win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -73,12 +80,14 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>include;..\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>..\assimp\lib\assimp_release-dll_win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

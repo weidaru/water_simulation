@@ -6,6 +6,7 @@
 
 #define	MATLEVELS	100		/* how many matrix pushes allowed */
 #define	MAX_LIGHTS	10		/* how many lights allowed */
+#define MAX_TEXTURE 10
 
 #ifndef GZRENDER
 #define GZRENDER
@@ -37,7 +38,8 @@ struct GzRender {			/* define a renderer */
 	GzLight		ambientlight;
 	GzColor		Ka, Kd, Ks;
 	float		    spec;		/* specular power */
-	GzTexture		tex_fun;    /* tex_fun(float u, float v, GzColor color) */
+	GzTexture		tex_fun[MAX_TEXTURE];    /* tex_fun(float u, float v, GzColor color) */
+	int tex_count;
 	VertexShader v_shader;
 	PixelShader p_shader;
 };

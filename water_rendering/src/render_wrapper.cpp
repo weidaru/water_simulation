@@ -4,7 +4,8 @@
 #include <time.h>
 
 #include "rend.h"
-#include "model.h"
+#include "Model.h"
+#include "ModelFactory.h"
 #include "shaders.h"
 
 //render using GzRender
@@ -15,10 +16,9 @@ GzDisplay *refraction_display;
 GzCamera default_camera;
 
 //model related
-Model teapot_model, water_plane_model;
-GzCoord teapot_scale;
-GzCoord teapot_position;
-GzCoord teapot_rotation;
+Model *teapot_model, *water_plane_model, *island_model;
+GzCoord teapot_scale, teapot_position, teapot_rotation;
+GzCoord island_scale, island_position, island_rotation;
 
 static inline char GzIntensityToChar(GzIntensity g) 
 {
@@ -30,7 +30,7 @@ static void flush_display(GzDisplay* display, BackBuffer* bf)
 {
 	BITMAP bitmap;
 	GetObject(bf->buffer_bmp, sizeof(BITMAP), &bitmap);
-	char* buffer = new char[bitmap.bmWidthBytes*bitmap.bmHeight];
+	static char* buffer = new char[bitmap.bmWidthBytes*bitmap.bmHeight];
 
 	BITMAPINFO binfo;
 	ZeroMemory(&binfo,sizeof(BITMAPINFO)); 
@@ -63,33 +63,8 @@ static void flush_display(GzDisplay* display, BackBuffer* bf)
 	SetDIBits(bf->back_dc, bf->buffer_bmp, 0, bitmap.bmHeight, buffer, &binfo, DIB_RGB_COLORS);
 }
 
-static int render_teapot(GzRender* in_renderer)
+static int render_model(GzRender* in_renderer, Model* model)
 {
-	//setup shader and teapot material
-	in_renderer->v_shader = GouraudVertexShader;
-	in_renderer->p_shader = GouraudPixelShader;
-
-	//use the same material for ambient, diffuse and specular
-	GzColor material_color = {0.7f, 0.3f, 0.1f};
-	for(int i=0; i<3; i++)
-	{
-		in_renderer->Ka[i] = material_color[i];
-		in_renderer->Kd[i] = material_color[i];
-		in_renderer->Ks[i] = material_color[i];
-	}
-	in_renderer->spec = 32;
-
-	//setup transform
-	GzMatrix m;
-	GzScaleMat(teapot_scale, m);
-	GzPushMatrix(in_renderer, m);
-	GzTrxMat(teapot_position, m);
-	GzPushMatrix(in_renderer, m);
-	GzTrxMat(teapot_rotation, m);
-	GzPushMatrix(in_renderer, m);
-
-	GzPutCamera(renderer, &default_camera);
-
 	GzBeginRender(in_renderer);
 
 	GzToken		nameListTriangle[4];		/* vertex attribute names */
@@ -98,25 +73,49 @@ static int render_teapot(GzRender* in_renderer)
 	nameListTriangle[1] = GZ_NORMAL; 
 	nameListTriangle[2] = GZ_TEXTURE_INDEX;  
 	nameListTriangle[3] = GZ_RGB_COLOR;
-	
-	const Model::TriangleVector& triangles = teapot_model.GetData();
-	for(Model::TriangleVector::const_iterator it = triangles.begin(); it != triangles.end(); it++) 
-	{ 	
-	     valueListTriangle[0] = (GzPointer)(*it)->vertices; 
-		 valueListTriangle[1] = (GzPointer)(*it)->normals; 
-		 valueListTriangle[2] = (GzPointer)(*it)->uvs; 
-		 GzPutTriangle(in_renderer, 3, nameListTriangle, valueListTriangle); 
+
+	int triangle_size = model->GetTriangleCount();
+	for(int i=0; i<triangle_size; i++) 
+	{ 
+		const Triangle& t = model->GetData(i);
+		valueListTriangle[0] = (GzPointer)t.vertices; 
+		valueListTriangle[1] = (GzPointer)t.normals; 
+		valueListTriangle[2] = (GzPointer)t.uvs; 
+		GzPutTriangle(in_renderer, 3, nameListTriangle, valueListTriangle); 
 	}
 
 	return GZ_SUCCESS;
 }
 
+static int render_island(GzRender* in_renderer)
+{
+	//use the same material for ambient, diffuse and specular
+	GzColor material_color = {0.635f, 0.549f, 0.223f};
+	for(int i=0; i<3; i++)
+	{
+		in_renderer->Ka[i] = material_color[i];
+		in_renderer->Kd[i] = material_color[i];
+		in_renderer->Ks[i] = material_color[i];
+	}
+	in_renderer->spec = 32;
+
+	//set up transform
+
+	GzMatrix m;
+	GzTrxMat(island_position,m);
+	GzPushMatrix(in_renderer, m);
+	GzRotYMat(180.0f, m);
+	GzPushMatrix(in_renderer, m);
+	GzScaleMat(island_scale,m);
+	GzPushMatrix(in_renderer, m);
+
+	GzPutCamera(renderer, &default_camera);
+
+	return render_model(in_renderer, island_model);
+}
+
 static int render_water_plane(GzRender* in_renderer)
 {
-	//setup shader and teapot material
-	in_renderer->v_shader = PhongVertexShader;
-	in_renderer->p_shader = PhongPixelShader;
-
 	//use the same material for ambient, diffuse and specular
 	GzColor material_color = {0.04f, 0.4f, 0.6f};
 	for(int i=0; i<3; i++)
@@ -130,13 +129,11 @@ static int render_water_plane(GzRender* in_renderer)
 	GzPutCamera(renderer, &default_camera);
 
 	//setup transform
-	GzCoord scale = {3.0f, 1.0f, 1.5f};
+	GzCoord scale = {2.4f, 1.0f, 1.5f};
 	GzMatrix m;
 	GzScaleMat(scale,m);
 	GzPushMatrix(in_renderer, m);
 
-	GzBeginRender(in_renderer);
-
 	GzToken		nameListTriangle[4];		/* vertex attribute names */
 	GzPointer	valueListTriangle[4]; 			/* vertex attribute pointers */
 	nameListTriangle[0] = GZ_POSITION; 
@@ -144,81 +141,31 @@ static int render_water_plane(GzRender* in_renderer)
 	nameListTriangle[2] = GZ_TEXTURE_INDEX;  
 	nameListTriangle[3] = GZ_RGB_COLOR;
 
-	const Model::TriangleVector& triangles = water_plane_model.GetData();
-	for(Model::TriangleVector::const_iterator it = triangles.begin(); it != triangles.end(); it++) 
-	{ 	
-		valueListTriangle[0] = (GzPointer)(*it)->vertices; 
-		valueListTriangle[1] = (GzPointer)(*it)->normals; 
-		valueListTriangle[2] = (GzPointer)(*it)->uvs; 
-		GzPutTriangle(in_renderer, 3, nameListTriangle, valueListTriangle); 
-	}
-
-	return GZ_SUCCESS;
-}
-
-static int render_teapot_refraction(GzRender* in_renderer)
-{
-	//setup shader and teapot material
-	in_renderer->v_shader = GouraudVertexShader;
-	in_renderer->p_shader = GouraudAlphaPixelShader;
-
-	//use the same material for ambient, diffuse and specular
-	GzColor material_color = {0.7f, 0.3f, 0.1f};
-	for(int i=0; i<3; i++)
-	{
-		in_renderer->Ka[i] = material_color[i];
-		in_renderer->Kd[i] = material_color[i];
-		in_renderer->Ks[i] = material_color[i];
-	}
-	in_renderer->spec = 32;
-
-	//setup transform
-	GzMatrix m;
-	GzScaleMat(teapot_scale, m);
-	GzPushMatrix(in_renderer, m);
-	GzCoord pos = {teapot_position[0], teapot_position[1]/1.33f, teapot_position[2]};
-	GzTrxMat(pos, m);
-	GzPushMatrix(in_renderer, m);
-	GzTrxMat(teapot_rotation, m);
-	GzPushMatrix(in_renderer, m);
-
-	GzPutCamera(renderer, &default_camera);
-
-	GzBeginRender(in_renderer);
-
-	GzToken		nameListTriangle[4];		/* vertex attribute names */
-	GzPointer	valueListTriangle[4]; 			/* vertex attribute pointers */
-	nameListTriangle[0] = GZ_POSITION; 
-	nameListTriangle[1] = GZ_NORMAL; 
-	nameListTriangle[2] = GZ_TEXTURE_INDEX;  
-	nameListTriangle[3] = GZ_RGB_COLOR;
-
-	const Model::TriangleVector& triangles = teapot_model.GetData();
-	for(Model::TriangleVector::const_iterator it = triangles.begin(); it != triangles.end(); it++) 
-	{ 	
-		valueListTriangle[0] = (GzPointer)(*it)->vertices; 
-		valueListTriangle[1] = (GzPointer)(*it)->normals; 
-		valueListTriangle[2] = (GzPointer)(*it)->uvs; 
-		GzPutTriangle(in_renderer, 3, nameListTriangle, valueListTriangle); 
-	}
-
-	return GZ_SUCCESS;
+	return render_model(in_renderer, water_plane_model);
 }
 
 int render(BackBuffer* bf)
 {
 	BitBlt(bf->back_dc, 0, 0, bf->width, bf->height, NULL, 0, 0, BLACKNESS );
 	
-	//Render teapot to refraction texture
-	render_teapot_refraction(renderer);
-	GzCopyDisplay(refraction_display, renderer->display);
+	//Render to refraction texture
+	GzInitDisplay(refraction_display);
+	GzInitDisplay(renderer->display);
+	renderer->v_shader = GouraudVertexShader;
+	renderer->p_shader = GouraudRefractionPixelShader;
+	island_scale[1] = 1.0f/1.33f;
+	render_island(renderer);
+	island_scale[1] = 1.0f;
 
-	//Render the model itself.
-	//render_teapot(renderer);			//skip rendering the teapot to save some time
+	GzCopyDisplay(refraction_display, renderer->display);
+	
+	GzInitDisplay(renderer->display);
+
+	renderer->v_shader = PhongVertexShader;
+	renderer->p_shader = PhongPixelShader;
 	render_water_plane(renderer);
 
 	//blend
-
 	for(int i=0; i<refraction_display->xres; i++)
 	{
 		for(int j=0; j<refraction_display->yres; j++)
@@ -240,6 +187,10 @@ int render(BackBuffer* bf)
 			}
 		}
 	}
+
+	renderer->v_shader = GouraudVertexShader;
+	renderer->p_shader = GouraudPixelShader;
+	render_island(renderer);
 
 	flush_display(renderer->display, bf);
 
@@ -282,7 +233,7 @@ int init_render(int x_res, int y_res)
 	GzPutAttribute(renderer, 2, nameListLights, valueListLights);
 
 	//read in model
-	teapot_model.ReadMesh("POT4.ASC");
+	teapot_model = ModelFactory::CreateModel("POT4.ASC", "asc");
 	teapot_scale[0] = 0.3f;
 	teapot_scale[1] = 0.3f;
 	teapot_scale[2] = 0.3f;
@@ -293,8 +244,19 @@ int init_render(int x_res, int y_res)
 	teapot_rotation[1] = 0.0f;
 	teapot_rotation[2] = 0.0f;
 
-	water_plane_model.ReadMesh("water_plane.asc");
+	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
 
+	island_model = ModelFactory::CreateModel("island.obj", "obj");
+	island_scale[0] = 0.8f;
+	island_scale[1] = 1.0f;
+	island_scale[2] = 0.8f;
+	island_position[0] = 0.0f;
+	island_position[1] = -1.0f;
+	island_position[2] = 0.0f;
+	island_rotation[0] = 0.0f;
+	island_rotation[1] = 0.0f;
+	island_rotation[2] = 0.0f;
+	
 	//setup texture display
 	GzNewDisplay(&refraction_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 

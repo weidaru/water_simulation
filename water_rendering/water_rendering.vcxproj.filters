@@ -21,6 +21,18 @@
     <ClInclude Include="include\Gz.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\Model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ModelFactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ModelImpAI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ModelImpASC.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="include\rend.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -33,15 +45,21 @@
     <ClInclude Include="include\utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\model.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\disp.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
     <ClCompile Include="src\main.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ModelFactory.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ModelImpAI.cpp">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ModelImpASC.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
     <ClCompile Include="src\rend.cpp">
@@ -57,9 +75,6 @@
       <Filter>Resource Files</Filter>
     </ClCompile>
     <ClCompile Include="src\utilities.cpp">
-      <Filter>Resource Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\model.cpp">
       <Filter>Resource Files</Filter>
     </ClCompile>
   </ItemGroup>

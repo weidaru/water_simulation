@@ -115,6 +115,8 @@ int GzNewRender(GzRender **render, GzRenderClass renderClass, GzDisplay *display
 	// TODO: Initial other member later
 	(*render)->numlights = 0;
 
+	GzInitDisplay((*render)->display);
+
 	return GZ_SUCCESS;
 }
 
@@ -134,9 +136,8 @@ int GzFreeRender(GzRender *render)
 
 int GzBeginRender(GzRender	*render)
 {
-/* 
-- set up for start of each frame - init frame buffer
-*/
+	render->tex_count = 0;
+
 	//Set up matrix**************************************************************
 	//Assume that after the first GzPutTriangle is called, no more transformation will be taken.
 	//If some are taken, the object to world matrix will be reset.
@@ -177,7 +178,7 @@ int GzBeginRender(GzRender	*render)
 	MatrixInverse(render->Xn, render->Xn);
 	MatrixTranspose(render->Xn, render->Xn);
 	MatrixInverse(render->Xn, render->Xn_inverse);
-	return GzInitDisplay(render->display);
+	return 1;
 }
 
 int GzPutAttribute(GzRender	*render, int numAttributes, GzToken	*nameList, 
@@ -255,7 +256,12 @@ int GzPutAttribute(GzRender	*render, int numAttributes, GzToken	*nameList,
 			render->spec = *((float*)valueList[i]);
 			break;
 		case GZ_TEXTURE_MAP:
-			render->tex_fun = (GzTexture)valueList[i];
+			{
+				if(render->tex_count >= MAX_TEXTURE)
+					return GZ_FAILURE;
+				render->tex_fun[render->tex_count++] = (GzTexture)valueList[i];
+			}
+			
 		default:
 			break;
 		}
@@ -274,7 +280,7 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 	render->v_shader(render, numParts, nameList, valueList, vs_output);
 
 	//Triangle Interpolation**************************************************************
-	PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres*2];
+	static PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres*2];
 	int count = 0;
 	ScanLineTriangleInterpolation(render, vs_output, buffer, &count);
 
@@ -284,6 +290,8 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 		PixelShaderInput& input = buffer[i];
 		GzColor color;
 		render->p_shader(render, input, color);
+		if(color[0] < 0.0f)			//discard the pixel if color is negative
+			continue;
 		if(DepthTest(render->display, input.positon[0], input.positon[1], input.positon[2]))
 		{
 			GzPutDisplay(render->display, input.positon[0], input.positon[1],
@@ -302,7 +310,6 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 	render->flatcolor[1] = oldColor[1];
 	render->flatcolor[2] = oldColor[2];
 
-	delete[] buffer;
 	return GZ_SUCCESS;
 }
 
@@ -475,6 +482,9 @@ void DrawLine(GzRender* render,  int numLines, GzCoord* vertices, int* indices)
 	}
 }
 
+/*
+* This is function is the bottleneck for performance, optimize if possible
+*/
 void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_output[3], PixelShaderInput* buffer, int* count)
 {
 	GzCoord vertices[3];

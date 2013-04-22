@@ -162,8 +162,26 @@ void GouraudPixelShader(GzRender* render, const PixelShaderInput& input, GzColor
 	color[2] = input.color[2];
 }
 
-void GouraudAlphaPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
+void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
+	//get world space position
+	static GzMatrix m;
+	static bool is_first = true;
+	if(is_first)
+	{
+		MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
+		is_first = false;
+	}
+	GzCoord pos_w;
+	MatrixMultiplyVector(m, input.positon, pos_w);
+	if(pos_w[1] >= 0.1f)			//Discard pixel above the y = 0 plane, given 0.1 error
+	{
+		color[0] = -1.0f;
+		color[1] = -1.0f;
+		color[2] = -1.0f;
+		return;
+	}
+
 	color[0] = input.color[0];
 	color[1] = input.color[1];
 	color[2] = input.color[2];
@@ -203,6 +221,55 @@ void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor c
 
 			//Diffuse
 			add_value = render->Kd[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
+			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
+			GzCoord reflection;
+			GzCoord temp;
+			Scale(n, 2*Dot(n, render->lights[k].direction), temp);
+			VectorSubtract(temp, render->lights[k].direction, reflection);
+			//Specular
+			add_value= render->Ks[j] * render->lights[k].color[j] * pow(Dot(reflection, view), render->spec);
+			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
+		}
+		color[j] =  Clamp(color[j], 0.0f, 1.0f);
+	}
+}
+
+void PhongTextureVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
+{
+	ReadInput(render, numParts, nameList, valueList, vs_output);
+	vs_output->lerp_normal = true;
+	vs_output->lerp_texture = true;
+}
+
+void PhongTexturePS(GzRender* render, const PixelShaderInput& input, GzColor color)
+{
+	GzCoord view = {0.0f, 0.0f, -1.0f};
+	GzCoord n_i;
+	Scale(input.normal, 1.0, n_i);
+	Normalize(n_i);
+
+	GzColor tex;
+	render->tex_fun[0](input.texture[0], input.texture[1], tex);
+
+	for(int j=0; j<3; j++)
+	{
+		float add_value;
+		//Ambient
+		add_value = tex[j]*render->ambientlight.color[j];	
+		color[j] =  Clamp(add_value, 0.0f, 1.0f);
+		for(int k=0; k<render->numlights; k++)
+		{
+			float d_n_v = Dot(n_i, view);
+			float d_n_i = Dot(n_i, render->lights[k].direction);
+			GzCoord n;
+			Scale(n_i, 1.0, n);
+			if(d_n_v * d_n_i < 0)
+				continue;
+			else if(d_n_v < 0 && d_n_i < 0)
+				Scale(n_i, -1.0, n);
+
+			//Diffuse
+			add_value = tex[j] * render->lights[k].color[j] * Dot(n, render->lights[k].direction);
 			color[j] +=  Clamp(add_value, 0.0f, 1.0f);
 			GzCoord reflection;
 			GzCoord temp;

@@ -155,6 +155,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
   MSG			msg;
 
+  init_render(window_width, window_height);
   while(1)
   {
     if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -192,7 +193,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		// As soon as the window is first created, create
 		// the back buffer.
-		init_render(window_width, window_height);
+		
 		InitBackBuffer() ;
 
 		return 0;
