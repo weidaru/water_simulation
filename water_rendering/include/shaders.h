@@ -39,6 +39,7 @@ void GouraudVertexShader(GzRender *render, int	numParts, const GzToken *nameList
 void GouraudPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);
 
 void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);
+void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);
 
 void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color);

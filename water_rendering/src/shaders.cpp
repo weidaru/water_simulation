@@ -188,6 +188,33 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	const_cast<PixelShaderInput&>(input).alpha = 100;
 }
 
+void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
+{
+	//get world space position
+	static GzMatrix m;
+	static bool is_first = true;
+	if(is_first)
+	{
+		MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
+		is_first = false;
+	}
+	GzCoord pos_w;
+	MatrixMultiplyVector(m, input.positon, pos_w);
+	if(pos_w[1] >= 0.0f)			//Discard pixel above the y = 0 plane, given 0.1 error
+	{
+		color[0] = -1.0f;
+		color[1] = -1.0f;
+		color[2] = -1.0f;
+		return;
+	}
+
+	color[0] = input.color[0];
+	color[1] = input.color[1];
+	color[2] = input.color[2];
+	const_cast<PixelShaderInput&>(input).alpha = 100;
+}
+
+
 void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
 {
 	ReadInput(render, numParts, nameList, valueList, vs_output);
