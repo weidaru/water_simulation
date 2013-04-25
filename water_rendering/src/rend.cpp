@@ -116,6 +116,7 @@ int GzNewRender(GzRender **render, GzRenderClass renderClass, GzDisplay *display
 	(*render)->numlights = 0;
 
 	GzInitDisplay((*render)->display);
+	(*render)->show_wireframe = false;
 
 	return GZ_SUCCESS;
 }
@@ -273,43 +274,55 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 	GzPointer *valueList) 
 /* numParts - how many names and values */
 {
-
-
-	//Vertex Shader**************************************************************
-	PixelShaderInput vs_output[3];
-	render->v_shader(render, numParts, nameList, valueList, vs_output);
-
-	//Triangle Interpolation**************************************************************
-	static PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres*2];
-	int count = 0;
-	ScanLineTriangleInterpolation(render, vs_output, buffer, &count);
-
-	//Pixel Shader**************************************************************
-	for(int i = 0; i < count; i++)
-	{
-		PixelShaderInput& input = buffer[i];
-		GzColor color;
-		render->p_shader(render, input, color);
-		if(color[0] < 0.0f)			//discard the pixel if color is negative
-			continue;
-		if(DepthTest(render->display, input.positon[0], input.positon[1], input.positon[2]))
+		//Vertex Shader**************************************************************
+		PixelShaderInput vs_output[3];
+		render->v_shader(render, numParts, nameList, valueList, vs_output);
+		bool discard = true;
+		for(int i=0; i<3; i++)
 		{
-			GzPutDisplay(render->display, input.positon[0], input.positon[1],
-				ctoi(color[0]), ctoi(color[1]), ctoi(color[2]), input.alpha, input.positon[2] );
+			if(vs_output[i].positon[2] < 0.0f)
+				return GZ_SUCCESS;
+		}
+
+		if(!render->show_wireframe)
+		{
+		//Triangle Interpolation**************************************************************
+		static PixelShaderInput* buffer =new PixelShaderInput[render->display->xres*render->display->yres*2];
+		int count = 0;
+		ScanLineTriangleInterpolation(render, vs_output, buffer, &count);
+
+		//Pixel Shader**************************************************************
+		for(int i = 0; i < count; i++)
+		{
+			PixelShaderInput& input = buffer[i];
+			GzColor color;
+			render->p_shader(render, input, color);
+			if(color[0] < 0.0f || input.positon[2]<0.0f)			//discard the pixel if color is negative
+				continue;
+			if(DepthTest(render->display, input.positon[0], input.positon[1], input.positon[2]))
+			{
+				GzPutDisplay(render->display, input.positon[0], input.positon[1],
+					ctoi(color[0]), ctoi(color[1]), ctoi(color[2]), input.alpha, input.positon[2] );
+			}
 		}
 	}
-
-	//draw wired mesh
-	int indices[6] = { 0, 1, 1, 2, 2, 0};
-	GzColor oldColor = {render->flatcolor[0], render->flatcolor[1], render->flatcolor[2]};
-	render->flatcolor[0] = 0.0f;
-	render->flatcolor[1] = 0.0f;
-	render->flatcolor[2] = 0.0f;
-	//DrawLine(render, 3, vertices, indices);
-	render->flatcolor[0] = oldColor[0];
-	render->flatcolor[1] = oldColor[1];
-	render->flatcolor[2] = oldColor[2];
-
+	else
+	{
+		//draw wired mesh
+		int indices[6] = { 0, 1, 1, 2, 2, 0};
+		GzColor oldColor = {render->flatcolor[0], render->flatcolor[1], render->flatcolor[2]};
+		render->flatcolor[0] = 0.0f;
+		render->flatcolor[1] = 0.0f;
+		render->flatcolor[2] = 0.0f;
+		GzCoord vertices[3];
+		for(int i=0; i<3; i++)
+			for(int j=0; j<3; j++)
+				vertices[i][j] = vs_output[i].positon[j];
+		DrawLine(render, 3, vertices, indices);
+		render->flatcolor[0] = oldColor[0];
+		render->flatcolor[1] = oldColor[1];
+		render->flatcolor[2] = oldColor[2];
+	}
 	return GZ_SUCCESS;
 }
 
@@ -403,6 +416,12 @@ int GzPopMatrix(GzRender *render)
 //value in indexes will be parsed into pairs
 void DrawLine(GzRender* render,  int numLines, GzCoord* vertices, int* indices)
 {
+	for(int i=0; i<numLines; i++)
+	{
+		if(vertices[i][2] < 0.0f)
+			return;
+	}
+
 	//Convert to GzIntensity
 	GzIntensity r=ctoi(render->flatcolor[0]),
 					  g=ctoi(render->flatcolor[1]),
@@ -444,7 +463,7 @@ void DrawLine(GzRender* render,  int numLines, GzCoord* vertices, int* indices)
 				else
 					z*=1.01;
 
-				if(DepthTest(render->display, x, y,z))
+				if(z > 0.0f && DepthTest(render->display, x, y,z))
 					GzPutDisplay(render->display, x,y,r,g,b,0,z);
 			}
 			if(DepthTest(render->display, x1, y1,z1))
@@ -603,7 +622,7 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 
 	float first_thres = y2;
 	first_thres = first_thres > 0.0f ? first_thres : 0.0f;
-	first_thres = first_thres < render->display->yres ? first_thres : render->display->yres-1;
+	first_thres = first_thres < render->display->yres ? first_thres : render->display->yres;
 	for(; y <= first_thres; y++)
 	{
 		float x_0= x0 + (y-y0)/(y1-y0)*(x1-x0);
@@ -689,7 +708,7 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 
 	float second_thres = y1;
 	second_thres = second_thres > 0.0f ? second_thres : 0.0f;
-	second_thres = second_thres < render->display->yres ? second_thres : render->display->yres-1;
+	second_thres = second_thres < render->display->yres ? second_thres : render->display->yres;
 	for(; y <= second_thres; y++)
 	{
 		float x_0 = x0 + (y-y0)/(y1-y0)*(x1-x0);

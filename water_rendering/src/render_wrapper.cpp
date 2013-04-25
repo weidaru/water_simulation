@@ -166,7 +166,7 @@ static int render_water_plane(GzRender* in_renderer)
 	GzPutCamera(renderer, &default_camera);
 
 	//setup transform
-	GzCoord scale = {2.4f, 1.0f, 1.5f};
+	GzCoord scale = {1.6f, 1.0f, 1.0f};
 	GzMatrix m;
 	GzScaleMat(scale,m);
 	GzPushMatrix(in_renderer, m);
@@ -185,7 +185,10 @@ int render(BackBuffer* bf)
 {
 	BitBlt(bf->back_dc, 0, 0, bf->width, bf->height, NULL, 0, 0, BLACKNESS );
 	
-//	Render to refraction texture
+	//Toggle to show wireframe
+	//renderer->show_wireframe = true;
+
+	//	Render to refraction texture
 	GzInitDisplay(refraction_display);
 	GzInitDisplay(renderer->display);
 	renderer->v_shader = GouraudVertexShader;
@@ -204,12 +207,10 @@ int render(BackBuffer* bf)
 	render_mirror_island(renderer);
 	GzCopyDisplay(reflection_display, renderer->display);
 	
-	//
-	
 	GzInitDisplay(renderer->display);
 
-	renderer->v_shader = PhongVertexShader;
-	renderer->p_shader = PhongPixelShader;
+	renderer->v_shader = GlobalReflectionVS;
+	renderer->p_shader = GlobalReflectionPS;
 	render_water_plane(renderer);
 
 	//blend
@@ -256,17 +257,17 @@ int init_render(int x_res, int y_res)
 	GzNewRender(&renderer, GZ_Z_BUFFER_RENDER, display);
 
 	//init camera
-	default_camera.position[X] =0.0;      
-	default_camera.position[Y] = 10.0;
-	default_camera.position[Z] = 10.0;
+	default_camera.position[X] =0.0f;      
+	default_camera.position[Y] = 10.0f;
+	default_camera.position[Z] = -17.3f;
 
-	default_camera.lookat[X] = 0.0;
-	default_camera.lookat[Y] = 0.0;
-	default_camera.lookat[Z] = 0.0;
+	default_camera.lookat[X] = 0.0f;
+	default_camera.lookat[Y] = 0.0f;
+	default_camera.lookat[Z] = 0.0f;
 
-	default_camera.worldup[X] = 0.0;
-	default_camera.worldup[Y] = 1.0;
-	default_camera.worldup[Z] = 0.0;
+	default_camera.worldup[X] = 0.0f;
+	default_camera.worldup[Y] = 0.866f;
+	default_camera.worldup[Z] = 0.5f;
 
 	default_camera.FOV = 53.7;              // degrees 
 
@@ -296,7 +297,7 @@ int init_render(int x_res, int y_res)
 	teapot_rotation[1] = 0.0f;
 	teapot_rotation[2] = 0.0f;
 
-	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
+	water_plane_model = ModelFactory::CreateModel("simple_water_plane.obj", "obj");
 
 	island_model = ModelFactory::CreateModel("island.obj", "obj");
 	island_scale[0] = 0.8f;
@@ -313,21 +314,15 @@ int init_render(int x_res, int y_res)
 	mirror_island_model = ModelFactory::CreateModel("island.obj", "obj");
 	for (int num=0; num<mirror_island_model->GetTriangleCount(); num++)
 	{
-	const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] = - mirror_island_model->GetData(num).vertices[0][Y];
-    const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] = - mirror_island_model->GetData(num).vertices[1][Y];
-    const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] = - mirror_island_model->GetData(num).vertices[2][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] = - mirror_island_model->GetData(num).vertices[0][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] = - mirror_island_model->GetData(num).vertices[1][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] = - mirror_island_model->GetData(num).vertices[2][Y];
 
-	const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[0][Y] = - mirror_island_model->GetData(num).normals[0][Y];
-	const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[1][Y] = - mirror_island_model->GetData(num).normals[1][Y];
-	const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[2][Y] = - mirror_island_model->GetData(num).normals[2][Y];
-	
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[0][Y] = - mirror_island_model->GetData(num).normals[0][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[1][Y] = - mirror_island_model->GetData(num).normals[1][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[2][Y] = - mirror_island_model->GetData(num).normals[2][Y];
 	}
 
-
-
-
-
-	
 	//setup texture display
 	GzNewDisplay(&refraction_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 	GzNewDisplay(&reflection_display, GZ_Z_BUFFER_RENDER, x_res, y_res);

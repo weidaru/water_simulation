@@ -42,6 +42,7 @@ struct GzRender {			/* define a renderer */
 	int tex_count;
 	VertexShader v_shader;
 	PixelShader p_shader;
+	bool show_wireframe;
 };
 #endif
 

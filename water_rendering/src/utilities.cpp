@@ -75,15 +75,24 @@ void MatrixMultiply(const GzMatrix m0, const GzMatrix m1, GzMatrix result)
 	}
 }
 
-void MatrixMultiplyVector(const GzMatrix mat, const GzCoord& vec, GzCoord& result)
+void MatrixMultiplyVector(const GzMatrix mat, const GzCoord& vec, GzCoord& result, bool is_direction)
 {
 	float extended_vec[4] = {vec[0], vec[1], vec[2], 1.0f};
+	if(is_direction)
+		extended_vec[3] = 0.0f;
 	float extended_result[4] = {0.0f};
 	for(int i=0; i<4; i++)
 		for(int j=0; j<4; j++)
 			extended_result[i] += mat[i][j] * extended_vec[j];
 	for(int i=0; i<3; i++)
-		result[i] = extended_result[i]/extended_result[3];
+	{
+		if(extended_result[3] != 0.0f)
+			result[i] = extended_result[i]/extended_result[3];
+		else
+			result[i] = extended_result[i];
+	}
+
+
 }
 
 void Normalize(GzCoord& vec)

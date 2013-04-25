@@ -47,4 +47,7 @@ void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor c
 void PhongTextureVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void PhongTexturePS(GzRender* render, const PixelShaderInput& input, GzColor color);
 
+void GlobalReflectionVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
+void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor color);
+
 #endif		//SHADERS_H_
