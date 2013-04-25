@@ -50,4 +50,7 @@ void PhongTexturePS(GzRender* render, const PixelShaderInput& input, GzColor col
 void GlobalReflectionVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor color);
 
+void FinalWaterVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
+void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color);
+
 #endif		//SHADERS_H_

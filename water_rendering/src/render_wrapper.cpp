@@ -91,7 +91,7 @@ static int render_model(GzRender* in_renderer, Model* model)
 static int render_island(GzRender* in_renderer)
 {
 	//use the same material for ambient, diffuse and specular
-	GzColor material_color = {0.635f, 0.549f, 0.223f};
+	GzColor material_color = {0.32f, 0.549f, 0.12f};
 	for(int i=0; i<3; i++)
 	{
 		in_renderer->Ka[i] = material_color[i];
@@ -154,14 +154,15 @@ static int render_mirror_island(GzRender* in_renderer)
 static int render_water_plane(GzRender* in_renderer)
 {
 	//use the same material for ambient, diffuse and specular
-	GzColor material_color = {0.04f, 0.4f, 0.6f};
+	GzColor material_color = {0.04f, 0.45f, 0.6f};
+	float coeffcient[3] = {0.8f, 0.8f, 0.5f};
 	for(int i=0; i<3; i++)
 	{
-		in_renderer->Ka[i] = material_color[i];
-		in_renderer->Kd[i] = material_color[i];
-		in_renderer->Ks[i] = material_color[i];
+		in_renderer->Ka[i] = material_color[i]*coeffcient[0];
+		in_renderer->Kd[i] = material_color[i]*coeffcient[1];
+		in_renderer->Ks[i] = material_color[i]*coeffcient[2];
 	}
-	in_renderer->spec = 32;
+	in_renderer->spec = 64;
 
 	GzPutCamera(renderer, &default_camera);
 
@@ -188,6 +189,7 @@ int render(BackBuffer* bf)
 	//Toggle to show wireframe
 	//renderer->show_wireframe = true;
 
+
 	//	Render to refraction texture
 	GzInitDisplay(refraction_display);
 	GzInitDisplay(renderer->display);
@@ -207,39 +209,13 @@ int render(BackBuffer* bf)
 	render_mirror_island(renderer);
 	GzCopyDisplay(reflection_display, renderer->display);
 	
+	//Put everything together.
 	GzInitDisplay(renderer->display);
-
-	renderer->v_shader = GlobalReflectionVS;
-	renderer->p_shader = GlobalReflectionPS;
+	renderer->texture_display[0] = reflection_display;
+	renderer->texture_display[1] = refraction_display;
+	renderer->v_shader = FinalWaterVS;
+	renderer->p_shader = FinalWaterPS;
 	render_water_plane(renderer);
-
-	//blend
-	for(int i=0; i<refraction_display->xres; i++)
-	{
-		for(int j=0; j<refraction_display->yres; j++)
-		{
-			GzIntensity r,g,b,a;
-			GzDepth z;
-			GzGetDisplay(refraction_display, i, j, &r, &g, &b, &a, &z);
-
-			GzIntensity r0,g0,b0,a0;
-			GzDepth z0;
-			GzGetDisplay(reflection_display, i, j, &r0, &g0, &b0, &a0, &z0);
-
-			if(a > 0 || a0 > 0)
-			{
-				GzIntensity r1,g1,b1,a1;
-				GzDepth z1;
-				GzGetDisplay(renderer->display, i, j, &r1, &g1, &b1, &a1, &z1);
-				//blend with 0.6, 0.4
-				float blend_des = 0.5f, blend_src = 0.25f, blend_refl = 0.25f;
-				r = r1*blend_des+ r*blend_src + r0*blend_refl;
-				g = g1*blend_des + g*blend_src + g0*blend_refl;
-				b = b1*blend_des + b*blend_src + b0*blend_refl;
-				GzPutDisplay(renderer->display, i,j,r,g,b,a,z);
-			}
-		}
-	}
 
 	renderer->v_shader = GouraudVertexShader;
 	renderer->p_shader = GouraudPixelShader;
@@ -278,12 +254,15 @@ int init_render(int x_res, int y_res)
 	GzToken     nameListLights[10];
 	GzPointer   valueListLights[10];
 	GzLight ambient_light = {{0.0f, 0.0f, 0.0f}, {0.9f, 0.9f, 0.9f}};
-	GzLight direction_light = { {0.0f, -0.707f, -0.707f} , {0.9f, 0.9f, 0.9f}};
+	GzLight direction_light = { {0.0f, 0.707f, 0.707f} , {0.9f, 0.9f, 0.9f}};
+	float smoothness = 128;
 	nameListLights[0] = GZ_AMBIENT_LIGHT;
 	valueListLights[0] = (GzPointer)&ambient_light;
 	nameListLights[1] = GZ_DIRECTIONAL_LIGHT;
 	valueListLights[1] = (GzPointer)&direction_light;
-	GzPutAttribute(renderer, 2, nameListLights, valueListLights);
+	nameListLights[2] = GZ_SPECULAR_COEFFICIENT;
+	valueListLights[2] = (GzPointer)&smoothness;
+	GzPutAttribute(renderer, 3, nameListLights, valueListLights);
 
 	//read in model
 	teapot_model = ModelFactory::CreateModel("POT4.ASC", "asc");
@@ -297,7 +276,7 @@ int init_render(int x_res, int y_res)
 	teapot_rotation[1] = 0.0f;
 	teapot_rotation[2] = 0.0f;
 
-	water_plane_model = ModelFactory::CreateModel("simple_water_plane.obj", "obj");
+	water_plane_model = ModelFactory::CreateModel("water_plane.obj", "obj");
 
 	island_model = ModelFactory::CreateModel("island.obj", "obj");
 	island_scale[0] = 0.8f;

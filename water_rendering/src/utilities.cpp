@@ -184,7 +184,8 @@ void MatrixTranspose(const GzMatrix mat, GzMatrix result)
 float Clamp(float v, float v_floor, float v_ceiling)
 {
 	assert(v_ceiling >= v_floor);
-	return v > v_ceiling ? v_ceiling : (v<v_floor ? v_floor : v);
+	float result = v > v_ceiling ? v_ceiling : (v<v_floor ? v_floor : v);
+	return result;
 }
 
 short	ctoi(float color)		/* convert float color to GzIntensity short */

@@ -113,6 +113,7 @@ int GzGetDisplay(GzDisplay *display, int i, int j, GzIntensity *r, GzIntensity *
 {
 	/* pass back pixel value in the display */
 	/* check display class to see what vars are valid */
+	
 	GzPixel* p = GetPixelFromDisplay(display, j, i);
 	if(!p)
 		return GZ_FAILURE;

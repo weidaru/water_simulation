@@ -117,6 +117,8 @@ int GzNewRender(GzRender **render, GzRenderClass renderClass, GzDisplay *display
 
 	GzInitDisplay((*render)->display);
 	(*render)->show_wireframe = false;
+	for(int i=0; i<MAX_TEXTURE; i++)
+		(*render)->texture_display[i] = NULL;
 
 	return GZ_SUCCESS;
 }
@@ -817,7 +819,7 @@ void YBasedScanLine(GzRender* render, const PixelShaderInput p_raw[2], PixelShad
 	x = x < render->display->xres ? x : render->display->xres;
 	float thres = x1 > 0.0f ? x1 : 0.0f;
 	thres = thres < render->display->xres ? thres : render->display->xres;
-	for( x = x0+1, y = p[0].positon[1]; x<thres; x++)
+	for( y = p[0].positon[1]; x<thres; x++)
 	{
 		float z = z0 + (x-x0)/(x1-x0)*(z1-z0);
 		float x_c = x * ZMAX/(ZMAX - z);

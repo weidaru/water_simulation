@@ -43,6 +43,7 @@ struct GzRender {			/* define a renderer */
 	VertexShader v_shader;
 	PixelShader p_shader;
 	bool show_wireframe;
+	GzDisplay* texture_display[MAX_TEXTURE];
 };
 #endif
 

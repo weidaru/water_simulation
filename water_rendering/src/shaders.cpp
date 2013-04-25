@@ -4,6 +4,8 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <assert.h>
+
 #include <string>
 #include <map>
 
@@ -18,7 +20,7 @@ struct Image
 	int width, height;
 	GzColor* data;
 
-	inline float* GetPixel(int x, int y)
+	inline const float* GetPixel(int x, int y)
 	{
 		return data[y*width + x];
 	}
@@ -76,6 +78,11 @@ public:
 private:
 	ImageMap data_;
 };
+
+inline float lerp(float v1, float v2, float t)
+{
+	return v1*t + v2*(1-t);
+}
 }
 
 /* Image texture function */
@@ -90,12 +97,19 @@ static int tex_fun(float u, float v, GzColor color, const std::string& name, con
 	u = u< 1e-5 ? 1e-5  : u;
 	v = v > (1-1e-5) ? (1-1e-5) : v;
 	v =  v < 1e-5  ? 1e-5  : v;
-	float x = u*(image->width), y = v*(image->height);
+	float x = u*(image->width-1), y = v*(image->height-1);
 	int nb[4][2] = { {(int)x, (int)y}, {(int)x, (int)y+1}, {(int)x+1, (int)y+1}, {(int)x+1, (int)y}};
+	for(int i=0; i<4; i++)
+	{
+		nb[i][0] = nb[i][0] < 0 ? 0 : nb[i][0];
+		nb[i][0] = nb[i][0] >= image->width ? image->width-1 : nb[i][0];
+		nb[i][1] = nb[i][1] < 0 ? 0 : nb[i][1];
+		nb[i][1] = nb[i][1] >= image->height ? image->height-1 : nb[i][1];
+	}
 	GzColor c[4];
 	for(int i=0; i<4; i++)
 	{
-		float* pixel = image->GetPixel(nb[i][0],nb[i][1]);
+		const float* pixel = image->GetPixel(nb[i][0],nb[i][1]);
 		c[i][0] = pixel[0];
 		c[i][1] = pixel[1];
 		c[i][2] = pixel[2];
@@ -116,6 +130,32 @@ static int tex_fun(float u, float v, GzColor color, const std::string& name, con
 	}
 
 	return 0;
+}
+
+static int tex_fun(float u, GzColor color, const std::string& name, const std::string& file_path)
+{
+	Image* image = ImageManager::GetSingleton()->GetImage(name, file_path);
+	u = u > (1-1e-5) ? (1-1e-5) : u;
+	u = u< 1e-5 ? 1e-5  : u;
+	float x = u*(image->width-1);
+	int x1 = x;
+	int x2 = (x+1) > image->width-1 ? image->width-1 : (x+1);
+	
+	GzColor c[2];
+	const float* pixel = image->GetPixel(x1, 0);
+	c[0][0] = pixel[0];
+	c[0][1] = pixel[1];
+	c[0][2] = pixel[2];
+	pixel = image->GetPixel(x2, 0);
+	c[1][0] = pixel[0];
+	c[1][1] = pixel[1];
+	c[1][2] = pixel[2];
+	for(int i=0; i<3; i++)
+	{
+		color[i] = lerp(c[0][i], c[1][i], x-x1);
+	}
+
+	return 1;
 }
 
 static void ReadInput(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
@@ -274,6 +314,7 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 {
 	//get world space position
 	static GzMatrix m;
+	static float fade_distance = 10.0f;
 	static bool is_first = true;
 	if(is_first)
 	{
@@ -282,7 +323,7 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	}
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
-	if(pos_w[1] >= 0.1f)			//Discard pixel above the y = 0 plane, given 0.1 error
+	if(pos_w[1] > 0.2f)			//Discard pixel above the y = 0 plane, given 0.2 error
 	{
 		color[0] = -1.0f;
 		color[1] = -1.0f;
@@ -290,10 +331,15 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 		return;
 	}
 
+	assert(pos_w[1] <= 0.2f);
 	color[0] = input.color[0];
 	color[1] = input.color[1];
 	color[2] = input.color[2];
-	const_cast<PixelShaderInput&>(input).alpha = 100;
+	float alpha = 0.0f;
+	if(-pos_w[1] < fade_distance)
+		alpha = (fade_distance+pos_w[1]) * (fade_distance+pos_w[1])/(fade_distance*fade_distance);
+	alpha = Clamp(alpha, 0.0f, 1.0f);
+	const_cast<PixelShaderInput&>(input).alpha = alpha * 100;
 }
 
 void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
@@ -305,7 +351,7 @@ void PhongVertexShader(GzRender *render, int	numParts, const GzToken *nameList, 
 
 void PhongPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
-	GzCoord view = {0.0f, 0.0f, -1.0f};
+	GzCoord view = {0.0f, 0.0f, 1.0f};
 	GzCoord n_i;
 	Scale(input.normal, 1.0, n_i);
 	Normalize(n_i);
@@ -415,7 +461,8 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 	Normalize(view);
 
 	GzCoord n_i = {0.0f, 1.0f, 0.0f};
-	MatrixMultiplyVector(render->camera.Xiw, n_i, n_i);
+	MatrixMultiplyVector(render->camera.Xiw, n_i, n_i, true);
+//	Scale(input.normal, 1.0f, n_i);
 	Normalize(n_i);
 	GzCoord view_reflection, temp;
 	Scale(n_i, 2*Dot(n_i, view), temp);
@@ -423,8 +470,6 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 	
 	GzMatrix Xwi;
 	MatrixInverse(render->camera.Xiw, Xwi);
-	GzCoord pos_w;
-	MatrixMultiplyVector(Xwi, pos_i, pos_w);
 	MatrixMultiplyVector(Xwi, view_reflection, view_reflection, true);			//Get view_reflection in world space
 	Normalize(view_reflection);
 
@@ -465,6 +510,7 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 			float u = (view_reflection[0]/view_reflection[2] + 1.0f)/2.0f;
 			float v =  (view_reflection[1]/view_reflection[2] - 1.0f)/-2.0f;
 			tex_fun(u, v, color, "SkyBoxFront", "cloudy_noon_FR.ppm");
+			
 		}
 	}
 }
@@ -481,16 +527,108 @@ void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	}
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
-	if(pos_w[1] >= 0.0f)			//Discard pixel above the y = 0 plane, given 0.1 error
+	if(pos_w[1] > 0.0f)			//Discard pixel above the y = 0 plane, given 0.1 error
 	{
 		color[0] = -1.0f;
 		color[1] = -1.0f;
 		color[2] = -1.0f;
 		return;
 	}
-
+	
 	color[0] = input.color[0];
 	color[1] = input.color[1];
 	color[2] = input.color[2];
-	const_cast<PixelShaderInput&>(input).alpha = 100;
+}
+
+void FinalWaterVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
+{
+	ReadInput(render, numParts, nameList, valueList, vs_output);
+	vs_output->lerp_normal = true;
+	vs_output->lerp_texture = true;
+}
+
+void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color)
+{
+	//leave this for now
+	static bool first_time = true;
+	static float global_transparentcy = 0.0f, sun_strength = 2.5f, sun_shineness = 256;
+	static GzColor sun_color = {1.0f, 0.9f, 0.6f}, water_color = {0.22f, 0.51f, 0.63f};
+	static GzCoord sun_vec;
+	static GzMatrix Xis;
+
+	if(first_time)
+	{
+		for(int i=0; i<3; i++)
+			sun_vec[i] = render->lights[0].direction[i];
+		MatrixMultiplyVector(render->camera.Xiw, sun_vec, sun_vec, true);
+		Normalize(sun_vec);
+		MatrixMultiply(render->Xsp, render->camera.Xpi, Xis);
+		MatrixInverse(Xis, Xis);
+		first_time = false;
+	}
+
+	GzCoord pos_i;
+	MatrixMultiplyVector(Xis, input.positon, pos_i);
+	GzCoord view;
+	Scale(pos_i, -1.0f, view);
+	Normalize(view);
+
+	GzCoord n;
+	Scale(input.normal, 1.0f, n);
+	Normalize(n);
+
+	GzColor global_ref_tex, global_ref_sun, local_ref_color, refraction_color;
+	float local_ref_alpha = 0.0f, refraction_alpha = 0.0f;
+	float fresnel = 0.0f;
+
+	GlobalReflectionPS(render, input, global_ref_tex);
+	GzCoord reflection;
+	GzCoord temp;
+	Scale(n, 2*Dot(n, view), temp);
+	VectorSubtract(temp, view, reflection);
+	{
+		GzColor dummy;
+
+		tex_fun(Dot(n, reflection), dummy, "Fresnel", "fresnel.ppm");
+		fresnel = dummy[0] * 12;
+		fresnel = Clamp(fresnel, 0.0f, 1.0f);
+	}
+	for(int i=0; i<3; i++)
+	{
+		global_ref_sun[i] = sun_strength * sun_color[i] * pow(Clamp(Dot(reflection, sun_vec), 0.0f, 1.0f), sun_shineness);
+		global_ref_tex[i] = lerp(global_ref_tex[i] * Clamp(Dot(n, sun_vec), 0.0f, 1.0f),
+									 global_ref_tex[i],
+									 global_transparentcy);
+	}
+
+	{
+		GzDepth dummy;
+		GzIntensity r,g,b,a;
+		GzGetDisplay(render->texture_display[0], input.positon[0], input.positon[1]-1, 
+							 &r, &g, &b, &a, &dummy);
+		local_ref_color[0] = Clamp(r/4095.0f, 0.0f, 1.0f);
+		local_ref_color[1] = Clamp(g/4095.0f, 0.0f, 1.0f);
+		local_ref_color[2] = Clamp(b/4095.0f, 0.0f, 1.0f);
+		local_ref_alpha = Clamp(a/100.0f, 0.0f, 1.0f);
+		Clamp(local_ref_alpha, 0.0f, 1.0f);
+		GzGetDisplay(render->texture_display[1], input.positon[0], input.positon[1]-1, 
+							 &r, &g, &b, &a, &dummy);
+		refraction_color[0] = Clamp(r/4095.0f, 0.0f, 1.0f);
+		refraction_color[1] = Clamp(g/4095.0f, 0.0f, 1.0f);
+		refraction_color[2] = Clamp(b/4095.0f, 0.0f, 1.0f);
+		refraction_alpha = Clamp(a/100.0f, 0.0f, 1.0f);
+		if(refraction_alpha <= 1e-4)
+		{
+			refraction_color[0] = water_color[0];
+			refraction_color[1] = water_color[1];
+			refraction_color[2] = water_color[2];
+			refraction_alpha = 0.7f;
+		}
+	}
+
+	for(int i=0; i<3; i++)
+	{
+		float reflection = lerp(local_ref_color[i], global_ref_sun[i] + global_ref_tex[i], local_ref_alpha); 
+		color[i] = lerp(reflection, refraction_color[i]*refraction_alpha, fresnel);
+	}
 }
