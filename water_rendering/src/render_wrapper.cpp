@@ -5,10 +5,12 @@
 #include <assert.h>
 
 #include "rend.h"
+#include "utilities.h"
 #include "Model.h"
 #include "ModelFactory.h"
 #include "shaders.h"
 #include "ImageManager.h"
+#include "projected_grid.h"
 
 //render using GzRender
 GzRender *renderer;
@@ -19,7 +21,7 @@ GzDisplay *reflection_display;
 GzCamera default_camera;
 
 //model related
-Model *teapot_model, *water_plane_model, *island_model, * mirror_island_model, *skybox_model;
+Model *teapot_model = NULL, *water_plane_model = NULL, *island_model = NULL, * mirror_island_model = NULL, *skybox_model = NULL;
 GzCoord teapot_scale, teapot_position, teapot_rotation;
 GzCoord island_scale, island_position, island_rotation;
 
@@ -156,10 +158,10 @@ static int render_skybox(GzRender* in_renderer)
 	in_renderer->p_shader = SkyboxPS;
 
 	GzMatrix m;
-	GzCoord scale = {4.0f, 4.0f, 4.0f};
+	GzCoord scale = {5.0f, 5.0f, 5.0f};
 	GzScaleMat(scale, m);
 	GzPushMatrix(in_renderer, m);
-	GzCoord translate = {0.0f, -3.0f, 0.0f};
+	GzCoord translate = {0.0f, -2.0f, 0.0f};
 	GzTrxMat(translate, m);
 	GzPushMatrix(in_renderer, m);
 
@@ -209,7 +211,7 @@ static int render_water_plane(GzRender* in_renderer)
 	GzPutCamera(renderer, &default_camera);
 
 	//setup transform
-	GzCoord scale = {2.0f, 1.0f, 2.0f};
+	GzCoord scale = {1.0f, 1.0f, 1.0f};
 	GzMatrix m;
 	GzScaleMat(scale,m);
 	GzPushMatrix(in_renderer, m);
@@ -230,8 +232,6 @@ int render(BackBuffer* bf)
 	
 	//Toggle to show wireframe
 	//renderer->show_wireframe = true;
-
-
 	//	Render to refraction texture
 	GzInitDisplay(refraction_display);
 	GzInitDisplay(renderer->display);
@@ -266,7 +266,6 @@ int render(BackBuffer* bf)
 	render_skybox(renderer);
 	flush_display(renderer->display, bf);
 
-	flush_display(renderer->display, bf);
 	return 0;
 }
 
@@ -278,7 +277,7 @@ int init_render(int x_res, int y_res)
 
 	//init camera
 	default_camera.position[X] =0.0f;      
-	default_camera.position[Y] = 10.0f;
+	default_camera.position[Y] = 5.0f;
 	default_camera.position[Z] = -17.3f;
 
 	default_camera.lookat[X] = 0.0f;
@@ -286,8 +285,8 @@ int init_render(int x_res, int y_res)
 	default_camera.lookat[Z] = 0.0f;
 
 	default_camera.worldup[X] = 0.0f;
-	default_camera.worldup[Y] = 0.866f;
-	default_camera.worldup[Z] = 0.5f;
+	default_camera.worldup[Y] = 0.961f;
+	default_camera.worldup[Z] = 0.278f;
 
 	default_camera.FOV = 53.7;              // degrees 
 
@@ -298,7 +297,8 @@ int init_render(int x_res, int y_res)
 	GzToken     nameListLights[10];
 	GzPointer   valueListLights[10];
 	GzLight ambient_light = {{0.0f, 0.0f, 0.0f}, {0.9f, 0.9f, 0.9f}};
-	GzLight direction_light = { {0.0f, 0.5f, 0.866f} , {0.9f, 0.9f, 0.9f}};
+	GzLight direction_light = { {-0.2f, 0.2f, 0.8f} , {0.9f, 0.9f, 0.9f}};
+	Normalize(direction_light.direction);
 	float smoothness = 128;
 	nameListLights[0] = GZ_AMBIENT_LIGHT;
 	valueListLights[0] = (GzPointer)&ambient_light;
@@ -320,14 +320,15 @@ int init_render(int x_res, int y_res)
 	teapot_rotation[1] = 0.0f;
 	teapot_rotation[2] = 0.0f;
 
-	water_plane_model = ModelFactory::CreateModel("water_plane.obj", "obj");
+	generate_water_mesh("water_plane.asc", renderer);
+	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
 
 	island_model = ModelFactory::CreateModel("island.obj", "obj");
 	island_scale[0] = 0.8f;
 	island_scale[1] = 1.0f;
 	island_scale[2] = 0.8f;
 	island_position[0] = 0.0f;
-	island_position[1] = -1.0f;
+	island_position[1] = 0.0f;
 	island_position[2] = 0.0f;
 	island_rotation[0] = 0.0f;
 	island_rotation[1] = 0.0f;

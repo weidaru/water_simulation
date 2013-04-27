@@ -106,5 +106,9 @@ typedef struct  GzLight
 #define U       0               /* array indicies for texture coords */
 #define V       1
 
+#define RECT_MAX_X	80	/* number of rect along x axis*/
+#define RECT_MAX_Z	80		/* number of rect along z axis*/
+#define X_RES		6		/* pixel length along x axis */
+#define Y_RES		6		/* pixel length along y axis */
 
 #endif				//GZ_H_

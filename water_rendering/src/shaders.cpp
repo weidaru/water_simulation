@@ -14,12 +14,10 @@ bool PixelShaderInput::lerp_normal = false;
 bool PixelShaderInput::lerp_texture = false;
 bool PixelShaderInput::lerp_color = false;
 
-namespace
-{
-inline float lerp(float v1, float v2, float t)
+
+static float lerp(float v1, float v2, float t)
 {
 	return v1*t + v2*(1-t);
-}
 }
 
 /* Image texture function */
@@ -260,7 +258,9 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	}
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
-	if(pos_w[1] > 1.0f)			//Discard pixel above the y = 0 plane, given 1.0 error
+	//TODO: error should vary according to height field
+	float error = 2.0f;
+	if(pos_w[1] > error)			//Discard pixel above the y = 0 plane, given 1.0 error
 	{
 		color[0] = -1.0f;
 		color[1] = -1.0f;
@@ -268,7 +268,7 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 		return;
 	}
 
-	assert(pos_w[1] <= 1.0f);
+	assert(pos_w[1] <= error);
 	color[0] = input.color[0];
 	color[1] = input.color[1];
 	color[2] = input.color[2];
@@ -276,7 +276,7 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	if(-pos_w[1] < fade_distance)
 	{
 		float temp =(fade_distance+pos_w[1]) /  fade_distance;
-		alpha = pow(temp, 10.0f);
+		alpha = pow(temp, 5.0f);
 	}
 		
 	alpha = Clamp(alpha, 0.0f, 1.0f);
@@ -403,7 +403,6 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 
 	GzCoord n_i = {0.0f, 1.0f, 0.0f};
 	MatrixMultiplyVector(render->camera.Xiw, n_i, n_i, true);
-//	Scale(input.normal, 1.0f, n_i);
 	Normalize(n_i);
 	GzCoord view_reflection, temp;
 	Scale(n_i, 2*Dot(n_i, view), temp);
@@ -468,14 +467,15 @@ void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	}
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
-	if(pos_w[1] > 0.0f)			//Discard pixel above the y = 0 plane, given 0.1 error
+	//TODO: error should vary according to height field
+	float error  = -0.5f;
+	if(pos_w[1] >= error)			//Discard pixel above the y = 0 plane, given 0.1 error
 	{
 		color[0] = -1.0f;
 		color[1] = -1.0f;
 		color[2] = -1.0f;
 		return;
 	}
-	
 	color[0] = input.color[0];
 	color[1] = input.color[1];
 	color[2] = input.color[2];
@@ -492,7 +492,7 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 {
 	//leave this for now
 	static bool first_time = true;
-	static float global_transparentcy = 0.0f, sun_strength = 2.0f, sun_shineness = 512;
+	static float global_transparentcy = 0.0f, sun_strength = 3.0f, sun_shineness = 512;
 	static GzColor sun_color = {1.2f, 0.9f, 0.6f}, water_color = {0.22f, 0.51f, 0.63f};
 	static GzCoord sun_vec;
 	static GzMatrix Xis;
@@ -530,9 +530,9 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 	{
 		//calculate fresnel
 		GzColor dummy;
-		tex_fun(Dot(view, input.normal), dummy, "Fresnel", "fresnel.ppm");
+		tex_fun(Dot(view, n), dummy, "Fresnel", "fresnel.ppm");
 
-		fresnel = Clamp(dummy[0] * 6.0f, 0.0f, 1.0f);
+		fresnel = Clamp(dummy[0]*2.0f, 0.0f, 1.0f);
 	}
 	for(int i=0; i<3; i++)
 	{
@@ -565,14 +565,20 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 			refraction_color[0] = water_color[0];
 			refraction_color[1] = water_color[1];
 			refraction_color[2] = water_color[2];
-			refraction_alpha = 0.5f;
+			refraction_alpha = 0.6f;
 		}
 	}
 
 	for(int i=0; i<3; i++)
 	{
 		float reflection_color = lerp(local_ref_color[i], global_ref_sun[i] + global_ref_tex[i], local_ref_alpha); 
-		color[i] = lerp(reflection_color, refraction_color[i] * refraction_alpha, fresnel);
+		//Pick anyone you like to see the effect.
+		color[i] = lerp(reflection_color, refraction_color[i] * refraction_alpha, fresnel);		//final color
+		//color[i] = global_ref_sun[i];																					//sun color
+		//color[i] = fresnel;																								//fresnel
+		//color[i] = global_ref_tex[i];																						//global reflection(sky only)
+		//color[i] = local_ref_color[i];																					//local reflection
+		//color[i] = refraction_color[i];																				//refraction
 	}
 }
 
