@@ -53,4 +53,7 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 void FinalWaterVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
 void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color);
 
+void SkyboxVS(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3]);
+void SkyboxPS(GzRender* render, const PixelShaderInput& input, GzColor color);
+
 #endif		//SHADERS_H_

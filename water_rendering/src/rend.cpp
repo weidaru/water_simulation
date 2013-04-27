@@ -282,9 +282,14 @@ int GzPutTriangle(GzRender *render, int	numParts, GzToken *nameList,
 		bool discard = true;
 		for(int i=0; i<3; i++)
 		{
-			if(vs_output[i].positon[2] < 0.0f)
-				return GZ_SUCCESS;
+			if(vs_output[i].positon[2] > 0.0f)
+			{
+				discard = false;
+				break;
+			}
 		}
+		if(discard)
+			return GZ_SUCCESS;
 
 		if(!render->show_wireframe)
 		{
@@ -608,12 +613,12 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 	//OPT: Find the intersection with screen rect, then do scanline.
 
 	PixelShaderInput p[2];
-	p[0].Assign(vertices[0], normals[0], textures[0], colors[0]);
-	p[1].Assign(vertices[0], normals[0], textures[0], colors[0]);
+//	p[0].Assign(vertices[0], normals[0], textures[0], colors[0]);
+//	p[1].Assign(vertices[0], normals[0], textures[0], colors[0]);
 
-	YBasedScanLine(render, p, buffer, count);
+//	YBasedScanLine(render, p, buffer, count);
 
-	float y = (vertices[0][1]+1.0f) > 0.0f ? (vertices[0][1]+1.0f) : 0.0f;
+	float y = (vertices[0][1]) > 0.0f ? (vertices[0][1]) : 0.0f;
 	y = y < render->display->yres ? y : render->display->yres-1;
 	float x0 = vertices[0][0], x1 = vertices[1][0], x2 = vertices[2][0];
 	float y0 = vertices[0][1], y1 = vertices[1][1], y2 = vertices[2][1];
@@ -651,12 +656,20 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 
 		float dy_0_p0 = y_0_c - y0_c;
 		float dy_0_1p = y1_c - y_0_c;
-		float b_0_0 = dy_0_1p/(dy_0_1p + dy_0_p0);
+		float b_0_0;
+		if(dy_0_1p + dy_0_p0 == 0.0f)
+			b_0_0 = 0.0f;
+		else
+			b_0_0 = dy_0_1p/(dy_0_1p + dy_0_p0);
 		float b_0_1 = 1 - b_0_0;
 
 		float dy_1_p0 = y_1_c - y0_c;
 		float dy_1_2p = y2_c - y_1_c;
-		float b_1_0 = dy_1_2p/(dy_1_2p + dy_1_p0);
+		float b_1_0;
+		if (dy_1_2p + dy_1_p0 == 0.0f)
+			b_1_0 = 0.0f;
+		else
+			b_1_0 = dy_1_2p/(dy_1_2p + dy_1_p0);
 		float b_1_2 = 1 - b_1_0;
 		
 		p[0].positon[0] = x_0;
@@ -728,12 +741,20 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 
 		float dy_0_p0 = y_0_c - y0_c;
 		float dy_0_1p = y1_c - y_0_c;
-		float b_0_0 = dy_0_1p/(dy_0_1p + dy_0_p0);
+		float b_0_0;
+		if(dy_0_1p + dy_0_p0 == 0.0f)
+			b_0_0 = 0.0f;
+		else
+			b_0_0 = dy_0_1p/(dy_0_1p + dy_0_p0);
 		float b_0_1 = 1 - b_0_0;
 
 		float dy_1_p2 = y_1_c - y2_c;
 		float dy_1_1p = y1_c - y_1_c;
 		float b_1_2 = dy_1_1p/(dy_1_1p + dy_1_p2);
+		if(dy_1_1p + dy_1_p2 == 0.0f)
+			b_1_2 = 0.0f;
+		else
+			b_1_2 = dy_1_1p/(dy_1_1p + dy_1_p2);
 		float b_1_1 = 1 - b_1_2;
 
 		p[0].positon[0] = x_0;
@@ -788,6 +809,12 @@ void ScanLineTriangleInterpolation(GzRender* render, const PixelShaderInput vs_o
 void YBasedScanLine(GzRender* render, const PixelShaderInput p_raw[2], PixelShaderInput* buffer, int* count)
 {
 	assert(abs(p_raw[0].positon[1] - p_raw[1].positon[1]) < 1e-5);
+
+	if(p_raw[0].positon[1] == 300.0f)
+	{
+		int dummy = 0;
+		dummy ++;
+	}
 
 	PixelShaderInput p[2];
 	if(p_raw[0].positon[0] > p_raw[1].positon[0])

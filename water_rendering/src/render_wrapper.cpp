@@ -2,11 +2,13 @@
 
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 
 #include "rend.h"
 #include "Model.h"
 #include "ModelFactory.h"
 #include "shaders.h"
+#include "ImageManager.h"
 
 //render using GzRender
 GzRender *renderer;
@@ -17,7 +19,7 @@ GzDisplay *reflection_display;
 GzCamera default_camera;
 
 //model related
-Model *teapot_model, *water_plane_model, *island_model, * mirror_island_model;
+Model *teapot_model, *water_plane_model, *island_model, * mirror_island_model, *skybox_model;
 GzCoord teapot_scale, teapot_position, teapot_rotation;
 GzCoord island_scale, island_position, island_rotation;
 
@@ -148,8 +150,48 @@ static int render_mirror_island(GzRender* in_renderer)
 	return render_model(in_renderer, mirror_island_model);
 }
 
+static int render_skybox(GzRender* in_renderer)
+{
+	in_renderer->v_shader = SkyboxVS;
+	in_renderer->p_shader = SkyboxPS;
 
+	GzMatrix m;
+	GzCoord scale = {4.0f, 4.0f, 4.0f};
+	GzScaleMat(scale, m);
+	GzPushMatrix(in_renderer, m);
+	GzCoord translate = {0.0f, -3.0f, 0.0f};
+	GzTrxMat(translate, m);
+	GzPushMatrix(in_renderer, m);
 
+	GzBeginRender(in_renderer);
+
+	GzToken		nameListTriangle[4];		/* vertex attribute names */
+	GzPointer	valueListTriangle[4]; 			/* vertex attribute pointers */
+	nameListTriangle[0] = GZ_POSITION; 
+	nameListTriangle[1] = GZ_NORMAL; 
+	nameListTriangle[2] = GZ_TEXTURE_INDEX;  
+	nameListTriangle[3] = GZ_RGB_COLOR;
+
+	int triangle_size = skybox_model->GetTriangleCount();
+	assert(triangle_size == 12);
+	char tex_name[12][64]  = {"SkyBoxLeft", "SkyBoxLeft",
+											"SkyBoxDown", "SkyBoxDown",
+											"SkyBoxBack", "SkyBoxBack",
+											"SkyBoxRight", "SkyBoxRight",
+											"SkyBoxUp", "SkyBoxUp",
+											"SkyBoxFront", "SkyBoxFront",};
+	for(int i=0; i<triangle_size; i++) 
+	{ 
+		strcpy(in_renderer->tex_name[0], tex_name[i]);
+		const Triangle& t = skybox_model->GetData(i);
+		valueListTriangle[0] = (GzPointer)t.vertices; 
+		valueListTriangle[1] = (GzPointer)t.normals; 
+		valueListTriangle[2] = (GzPointer)t.uvs; 
+		GzPutTriangle(in_renderer, 3, nameListTriangle, valueListTriangle); 
+	}
+
+	return GZ_SUCCESS;
+}
 
 static int render_water_plane(GzRender* in_renderer)
 {
@@ -167,7 +209,7 @@ static int render_water_plane(GzRender* in_renderer)
 	GzPutCamera(renderer, &default_camera);
 
 	//setup transform
-	GzCoord scale = {1.6f, 1.0f, 1.0f};
+	GzCoord scale = {2.0f, 1.0f, 2.0f};
 	GzMatrix m;
 	GzScaleMat(scale,m);
 	GzPushMatrix(in_renderer, m);
@@ -221,8 +263,10 @@ int render(BackBuffer* bf)
 	renderer->p_shader = GouraudPixelShader;
 	render_island(renderer);
 
+	render_skybox(renderer);
 	flush_display(renderer->display, bf);
 
+	flush_display(renderer->display, bf);
 	return 0;
 }
 
@@ -254,7 +298,7 @@ int init_render(int x_res, int y_res)
 	GzToken     nameListLights[10];
 	GzPointer   valueListLights[10];
 	GzLight ambient_light = {{0.0f, 0.0f, 0.0f}, {0.9f, 0.9f, 0.9f}};
-	GzLight direction_light = { {0.0f, 0.707f, 0.707f} , {0.9f, 0.9f, 0.9f}};
+	GzLight direction_light = { {0.0f, 0.5f, 0.866f} , {0.9f, 0.9f, 0.9f}};
 	float smoothness = 128;
 	nameListLights[0] = GZ_AMBIENT_LIGHT;
 	valueListLights[0] = (GzPointer)&ambient_light;
@@ -302,7 +346,16 @@ int init_render(int x_res, int y_res)
 		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[2][Y] = - mirror_island_model->GetData(num).normals[2][Y];
 	}
 
-	//setup texture display
+	//setup skybox
+	skybox_model = ModelFactory::CreateModel("skybox.asc", "asc");
+
+	//setup texture display and textures
+	ImageManager::GetSingleton()->GetImage("SkyBoxUp", "cloudy_noon_UP.ppm");
+	ImageManager::GetSingleton()->GetImage("SkyBoxDown", "cloudy_noon_DN.ppm");
+	ImageManager::GetSingleton()->GetImage("SkyBoxLeft", "cloudy_noon_LF.ppm");
+	ImageManager::GetSingleton()->GetImage("SkyBoxRight", "cloudy_noon_RT.ppm");
+	ImageManager::GetSingleton()->GetImage("SkyBoxFront", "cloudy_noon_FR.ppm");
+	ImageManager::GetSingleton()->GetImage("SkyBoxBack", "cloudy_noon_BK.ppm");
 	GzNewDisplay(&refraction_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 	GzNewDisplay(&reflection_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 

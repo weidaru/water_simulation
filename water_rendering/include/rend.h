@@ -39,6 +39,7 @@ struct GzRender {			/* define a renderer */
 	GzColor		Ka, Kd, Ks;
 	float		    spec;		/* specular power */
 	GzTexture		tex_fun[MAX_TEXTURE];    /* tex_fun(float u, float v, GzColor color) */
+	char tex_name[MAX_TEXTURE][64];
 	int tex_count;
 	VertexShader v_shader;
 	PixelShader p_shader;
