@@ -468,7 +468,7 @@ void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
 	//TODO: error should vary according to height field
-	float error  = -0.5f;
+	float error  = 1.0f;
 	if(pos_w[1] >= error)			//Discard pixel above the y = 0 plane, given 0.1 error
 	{
 		color[0] = -1.0f;
@@ -545,8 +545,17 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 	{
 		GzDepth dummy;
 		GzIntensity r,g,b,a;
-		int x = Clamp(input.positon[0], 0.0f, render->display->xres - 1);
-		int y = Clamp(input.positon[1], 0.0f, render->display->yres - 1);
+
+
+		GzCoord textcoord_refl;
+		float rippling_strength = 0.1f;
+		textcoord_refl[0] = input.positon[0] + input.normal[0] * rippling_strength * render->display->xres;
+		textcoord_refl[1] = input.positon[1] + input.normal[2] * rippling_strength * render->display->yres;
+
+
+
+		int x = Clamp(textcoord_refl[0], 0.0f, render->display->xres - 1);
+		int y = Clamp(textcoord_refl[1], 0.0f, render->display->yres - 1);
 		GzGetDisplay(render->texture_display[0], x, y, 
 							 &r, &g, &b, &a, &dummy);
 		local_ref_color[0] = Clamp(r/4095.0f, 0.0f, 1.0f);
@@ -554,6 +563,9 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 		local_ref_color[2] = Clamp(b/4095.0f, 0.0f, 1.0f);
 		local_ref_alpha = Clamp(a/100.0f, 0.0f, 1.0f);
 		Clamp(local_ref_alpha, 0.0f, 1.0f);
+		x = Clamp(input.positon[0], 0.0f, render->display->xres - 1);
+		y = Clamp(input.positon[1], 0.0f, render->display->yres - 1);
+
 		GzGetDisplay(render->texture_display[1], x, y,
 							 &r, &g, &b, &a, &dummy);
 		refraction_color[0] = Clamp(r/4095.0f, 0.0f, 1.0f);

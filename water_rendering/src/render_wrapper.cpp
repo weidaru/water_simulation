@@ -137,7 +137,7 @@ static int render_mirror_island(GzRender* in_renderer)
 	GzMatrix m;
 	GzCoord mirror_island_position;
 	mirror_island_position[X]=island_position[X];
-	mirror_island_position[Y]=- island_position[Y];
+	mirror_island_position[Y]= - island_position[Y];
 	mirror_island_position[Z]=island_position[Z];
 
 	GzTrxMat(mirror_island_position,m);
@@ -338,9 +338,9 @@ int init_render(int x_res, int y_res)
 	mirror_island_model = ModelFactory::CreateModel("island.obj", "obj");
 	for (int num=0; num<mirror_island_model->GetTriangleCount(); num++)
 	{
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] = - mirror_island_model->GetData(num).vertices[0][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] = - mirror_island_model->GetData(num).vertices[1][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] = - mirror_island_model->GetData(num).vertices[2][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] =2 - mirror_island_model->GetData(num).vertices[0][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] =2 - mirror_island_model->GetData(num).vertices[1][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] =2 - mirror_island_model->GetData(num).vertices[2][Y];
 
 		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[0][Y] = - mirror_island_model->GetData(num).normals[0][Y];
 		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[1][Y] = - mirror_island_model->GetData(num).normals[1][Y];
