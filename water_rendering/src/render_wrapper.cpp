@@ -19,10 +19,10 @@ GzDisplay *reflection_display;
 
 //camera
 GzCamera default_camera;
+bool need_update;
 
 //model related
-Model *teapot_model = NULL, *water_plane_model = NULL, *island_model = NULL, * mirror_island_model = NULL, *skybox_model = NULL;
-GzCoord teapot_scale, teapot_position, teapot_rotation;
+Model *water_plane_model = NULL, *island_model = NULL, * mirror_island_model = NULL, *skybox_model = NULL;
 GzCoord island_scale, island_position, island_rotation;
 
 static inline char GzIntensityToChar(GzIntensity g) 
@@ -228,6 +228,11 @@ static int render_water_plane(GzRender* in_renderer)
 
 int render(BackBuffer* bf)
 {
+	if(!need_update)
+		return 1;
+	else
+		need_update = false;
+
 	BitBlt(bf->back_dc, 0, 0, bf->width, bf->height, NULL, 0, 0, BLACKNESS );
 	
 	//Toggle to show wireframe
@@ -235,8 +240,10 @@ int render(BackBuffer* bf)
 	//	Render to refraction texture
 	GzInitDisplay(refraction_display);
 	GzInitDisplay(renderer->display);
-	renderer->v_shader = GouraudVertexShader;
-	renderer->p_shader = GouraudRefractionPixelShader;
+	renderer->v_shader = RefractionVertexShader;
+	renderer->p_shader = RefractionPixelShader;
+	ImageManager::GetSingleton()->GetImage("IslandTexture", "island_tex.ppm");
+	strcpy(renderer->tex_name[0], "IslandTexture");
 	island_scale[1] = 1.0f/1.33f;
 	render_island(renderer);
 	island_scale[1] = 1.0f;
@@ -259,8 +266,13 @@ int render(BackBuffer* bf)
 	renderer->p_shader = FinalWaterPS;
 	render_water_plane(renderer);
 
-	renderer->v_shader = GouraudVertexShader;
-	renderer->p_shader = GouraudPixelShader;
+	renderer->v_shader = PhongTextureVS;
+	renderer->p_shader = PhongTexturePS;
+	ImageManager::GetSingleton()->GetImage("IslandTexture", "island_tex.ppm");
+	strcpy(renderer->tex_name[0], "IslandTexture");
+	renderer->Ks[0] = 0.1f;
+	renderer->Ks[1] = 0.1f;
+	renderer->Ks[2] = 0.1f;
 	render_island(renderer);
 
 	render_skybox(renderer);
@@ -308,18 +320,6 @@ int init_render(int x_res, int y_res)
 	valueListLights[2] = (GzPointer)&smoothness;
 	GzPutAttribute(renderer, 3, nameListLights, valueListLights);
 
-	//read in model
-	teapot_model = ModelFactory::CreateModel("POT4.ASC", "asc");
-	teapot_scale[0] = 0.3f;
-	teapot_scale[1] = 0.3f;
-	teapot_scale[2] = 0.3f;
-	teapot_position[0] = 0.0f;
-	teapot_position[1] = -3.0f;
-	teapot_position[2] = -1.0f;
-	teapot_rotation[0] = 0.0f;
-	teapot_rotation[1] = 0.0f;
-	teapot_rotation[2] = 0.0f;
-
 	generate_water_mesh("water_plane.asc", renderer);
 	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
 
@@ -359,6 +359,8 @@ int init_render(int x_res, int y_res)
 	ImageManager::GetSingleton()->GetImage("SkyBoxBack", "cloudy_noon_BK.ppm");
 	GzNewDisplay(&refraction_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 	GzNewDisplay(&reflection_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
+
+	need_update = true;
 
 	return 0;
 }

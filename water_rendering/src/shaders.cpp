@@ -245,7 +245,14 @@ void GouraudPixelShader(GzRender* render, const PixelShaderInput& input, GzColor
 	color[2] = input.color[2];
 }
 
-void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
+void RefractionVertexShader(GzRender *render, int	numParts, const GzToken *nameList, const GzPointer *valueList, PixelShaderInput vs_output[3])
+{
+	ReadInput(render, numParts, nameList, valueList, vs_output);
+	vs_output->lerp_normal = true;
+	vs_output->lerp_texture = true;
+}
+
+void RefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
 	//get world space position
 	static GzMatrix m;
@@ -256,6 +263,10 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 		MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
 		is_first = false;
 	}
+
+	GzColor tex;
+	tex_fun(input.texture[0], input.texture[1], tex, "IslandTexture", "");
+
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
 	//TODO: error should vary according to height field
@@ -269,14 +280,14 @@ void GouraudRefractionPixelShader(GzRender* render, const PixelShaderInput& inpu
 	}
 
 	assert(pos_w[1] <= error);
-	color[0] = input.color[0];
-	color[1] = input.color[1];
-	color[2] = input.color[2];
-	float alpha = 0.0f;
-	if(-pos_w[1] < fade_distance)
+	color[0] = tex[0];
+	color[1] = tex[1];
+	color[2] = tex[2];
+	float alpha = 1.0f;
+	if(error - pos_w[1] < fade_distance)
 	{
-		float temp =(fade_distance+pos_w[1]) /  fade_distance;
-		alpha = pow(temp, 5.0f);
+		float temp =(error - pos_w[1]) /  fade_distance;
+		alpha = pow(1-temp, 3.0f);
 	}
 		
 	alpha = Clamp(alpha, 0.0f, 1.0f);
@@ -344,7 +355,7 @@ void PhongTexturePS(GzRender* render, const PixelShaderInput& input, GzColor col
 	Normalize(n_i);
 
 	GzColor tex;
-	render->tex_fun[0](input.texture[0], input.texture[1], tex);
+	tex_fun(input.texture[0], input.texture[1], tex, "IslandTexture", "");
 
 	for(int j=0; j<3; j++)
 	{

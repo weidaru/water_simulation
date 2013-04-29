@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 #include "render_wrapper.h"
 
@@ -19,11 +18,8 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 
 inline void draw()
 {
-	time_t t = clock();
-
-	render(&back_buffer);
-
 	HDC winhdc = GetDC( winhwnd ) ;
+	render(&back_buffer);
 	// Now copy the back buffer to the front buffer.
 	BitBlt(
 
@@ -41,11 +37,6 @@ inline void draw()
 
 	// And we just want a straight copy.
 	SRCCOPY );
-
-	int fps = CLOCKS_PER_SEC/(clock() - (float)t);
-	char buffer[128];
-	sprintf(buffer, "FPS: %d", fps);
-	TextOutA(winhdc, 20, 20, buffer, strlen(buffer));
 
 	ReleaseDC( winhwnd, winhdc ) ;
 }
@@ -156,6 +147,13 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
   MSG			msg;
 
   init_render(window_width, window_height);
+
+  //show some text
+  HDC winhdc = GetDC(winhwnd);
+  char buffer[128];
+  sprintf(buffer, "Rendering...");
+  TextOutA(winhdc, window_width/2 - 50, window_height/2 - 20, buffer, strlen(buffer));
+
   while(1)
   {
     if(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
@@ -193,9 +191,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		// As soon as the window is first created, create
 		// the back buffer.
-		
 		InitBackBuffer() ;
-
 		return 0;
 	}
 	break;
