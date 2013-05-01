@@ -1,0 +1,38 @@
+#camera configuration
+#camera position
+camera_position_x = 0.0
+camera_position_y = 15.0
+camera_position_z = -35.0
+
+#camera lookat
+camera_lookat_x = 0.0
+camera_lookat_y = 0.0
+camera_lookat_z = 0.0
+
+#camera worldup
+camera_worldup_x = 0.0
+camera_worldup_y = 0.92
+camera_worldup_z = 0.395
+
+#camera FOV
+camera_FOV = 60.0
+
+#direction light configuration
+#direction light direction
+direction_light_direction_x= -0.2
+direction_light_direction_y = 0.2
+direction_light_direction_z = 0.8
+
+#sun
+global_transparency = 0.0
+sun_strength = 3.0
+sun_shiness = 512.0
+sun_color_r = 1.2
+sun_color_g = 0.9
+sun_color_b = 0.6
+
+#water
+water_color_r = 0.22
+water_color_g = 0.51
+water_color_b = 0.63
+

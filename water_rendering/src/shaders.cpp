@@ -2,6 +2,7 @@
 #include "Gz.h"
 #include "utilities.h"
 #include "ImageManager.h"
+#include "ConfigParser.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -255,14 +256,9 @@ void RefractionVertexShader(GzRender *render, int	numParts, const GzToken *nameL
 void RefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
 	//get world space position
-	static GzMatrix m;
-	static float fade_distance = 10.0f;
-	static bool is_first = true;
-	if(is_first)
-	{
-		MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
-		is_first = false;
-	}
+	GzMatrix m;
+	float fade_distance = 10.0f;
+	MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
 
 	GzColor tex;
 	tex_fun(input.texture[0], input.texture[1], tex, "IslandTexture", "");
@@ -279,7 +275,6 @@ void RefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzCo
 		return;
 	}
 
-	assert(pos_w[1] <= error);
 	color[0] = tex[0];
 	color[1] = tex[1];
 	color[2] = tex[2];
@@ -287,7 +282,7 @@ void RefractionPixelShader(GzRender* render, const PixelShaderInput& input, GzCo
 	if(error - pos_w[1] < fade_distance)
 	{
 		float temp =(error - pos_w[1]) /  fade_distance;
-		alpha = pow(1-temp, 3.0f);
+		alpha = pow(1-temp, 2.5f);
 	}
 		
 	alpha = Clamp(alpha, 0.0f, 1.0f);
@@ -469,13 +464,9 @@ void GlobalReflectionPS(GzRender* render, const PixelShaderInput& input, GzColor
 void GouraudReflectionPixelShader(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
 	//get world space position
-	static GzMatrix m;
-	static bool is_first = true;
-	if(is_first)
-	{
-		MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
-		is_first = false;
-	}
+	GzMatrix m;
+	bool is_first = true;
+	MatrixMultiply(render->Xwm, render->Xsm_inverse, m); 
 	GzCoord pos_w;
 	MatrixMultiplyVector(m, input.positon, pos_w);
 	//TODO: error should vary according to height field
@@ -502,22 +493,28 @@ void FinalWaterVS(GzRender *render, int	numParts, const GzToken *nameList, const
 void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color)
 {
 	//leave this for now
-	static bool first_time = true;
-	static float global_transparentcy = 0.0f, sun_strength = 3.0f, sun_shineness = 512;
-	static GzColor sun_color = {1.2f, 0.9f, 0.6f}, water_color = {0.22f, 0.51f, 0.63f};
-	static GzCoord sun_vec;
-	static GzMatrix Xis;
+	float global_transparency = 0.0f, sun_strength = 3.0f, sun_shineness = 512.0f;
+	GzColor sun_color = {1.2f, 0.9f, 0.6f}, water_color = {0.22f, 0.51f, 0.63f};
+	GzCoord sun_vec;
+	GzMatrix Xis;
+	for(int i=0; i<3; i++)
+		sun_vec[i] = render->lights[0].direction[i];
+	MatrixMultiplyVector(render->camera.Xiw, sun_vec, sun_vec, true);
+	Normalize(sun_vec);
+	MatrixMultiply(render->Xsp, render->camera.Xpi, Xis);
+	MatrixInverse(Xis, Xis);
 
-	if(first_time)
-	{
-		for(int i=0; i<3; i++)
-			sun_vec[i] = render->lights[0].direction[i];
-		MatrixMultiplyVector(render->camera.Xiw, sun_vec, sun_vec, true);
-		Normalize(sun_vec);
-		MatrixMultiply(render->Xsp, render->camera.Xpi, Xis);
-		MatrixInverse(Xis, Xis);
-		first_time = false;
-	}
+	ConfigParser* parser = ConfigParser::getSingleton();
+	parser->getValue("global_transparency", &global_transparency);
+	parser->getValue("sun_strength", &sun_strength);
+	parser->getValue("sun_shineness", &sun_shineness);
+	parser->getValue("sun_color_r", &sun_color[0]);
+	parser->getValue("sun_color_g", &sun_color[1]);
+	parser->getValue("sun_color_b", &sun_color[2]);
+	parser->getValue("water_color_r", &water_color[0]);
+	parser->getValue("water_color_g", &water_color[1]);
+	parser->getValue("water_color_b", &water_color[2]);
+
 
 	GzCoord pos_i;
 	MatrixMultiplyVector(Xis, input.positon, pos_i);
@@ -550,7 +547,7 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 		global_ref_sun[i] = sun_strength * sun_color[i] * pow(Clamp(Dot(reflection, sun_vec), 0.0f, 1.0f), sun_shineness);
 		global_ref_tex[i] = lerp(global_ref_tex[i] * Clamp(Dot(n, sun_vec), 0.0f, 1.0f),
 									 global_ref_tex[i],
-									 global_transparentcy);
+									 global_transparency);
 	}
 
 	{
@@ -589,6 +586,12 @@ void FinalWaterPS(GzRender* render, const PixelShaderInput& input, GzColor color
 			refraction_color[1] = water_color[1];
 			refraction_color[2] = water_color[2];
 			refraction_alpha = 0.6f;
+		}
+		else
+		{
+			refraction_color[0] += water_color[0]*0.3f;
+			refraction_color[1] +=water_color[1]*0.3f;
+			refraction_color[2] += water_color[2]*0.3f;
 		}
 	}
 

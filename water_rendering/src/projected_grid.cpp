@@ -51,7 +51,7 @@ static void InterpolateHomoCoord(int i, int j, float PointWorld[4])
 
 static void generated_grid(const char* OutPutFile, GzRender* renderer)
 {
-	static float up_bias = 30.0f, forward_bias = 20.0f;
+	static float up_bias = 40.0f, forward_bias = 20.0f;
 
 	float u, v;
 	float meshTri1V1[4];

@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\ConfigParser.h" />
     <ClInclude Include="include\disp.h" />
     <ClInclude Include="include\Gz.h" />
     <ClInclude Include="include\HeightFieldMgr.h" />
@@ -27,6 +28,7 @@
     <ClInclude Include="include\utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\ConfigParser.cpp" />
     <ClCompile Include="src\disp.cpp" />
     <ClCompile Include="src\HeightFieldMgr.cpp" />
     <ClCompile Include="src\main.cpp" />

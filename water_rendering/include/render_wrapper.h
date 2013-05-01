@@ -18,6 +18,11 @@ int render(BackBuffer* bf);
 int init_render(int x_res, int y_res);
 
 /*
+* Load config file
+*/
+int init_config();
+
+/*
 * Release the render
 */
 int release_render();

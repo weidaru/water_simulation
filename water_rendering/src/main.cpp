@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "render_wrapper.h"
+#include "ConfigParser.h"
 
 HWND winhwnd;
 int window_width =800;
@@ -19,7 +20,14 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
 inline void draw()
 {
 	HDC winhdc = GetDC( winhwnd ) ;
-	render(&back_buffer);
+	int result =render(&back_buffer);
+	if(result == 0)
+	{
+		char buffer[128];
+		sprintf(buffer, "Press F5 to reload config.");
+		TextOutA(back_buffer.back_dc, 50, 50, buffer, strlen(buffer));
+	}
+
 	// Now copy the back buffer to the front buffer.
 	BitBlt(
 
@@ -37,7 +45,6 @@ inline void draw()
 
 	// And we just want a straight copy.
 	SRCCOPY );
-
 	ReleaseDC( winhwnd, winhdc ) ;
 }
 
@@ -146,6 +153,7 @@ int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
   MSG			msg;
 
+  ConfigParser::getSingleton()->parse("config.txt");
   init_render(window_width, window_height);
 
   //show some text
@@ -209,7 +217,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			return 0;
 		}
 		break;
+	case WM_KEYDOWN:
+	{
+		switch( wParam )
+		{
+		case VK_F5:
+			{
+				HDC winhdc = GetDC(winhwnd);
+				BitBlt(winhdc, 
+						0, 0, back_buffer.width, back_buffer.height,
+						back_buffer.back_dc, 
+						0, 0, WHITENESS );
 
+				char buffer[128];
+				sprintf(buffer, "Refresh! Rendering...");
+				TextOutA(winhdc, window_width/2 - 50, window_height/2 - 20, buffer, strlen(buffer));
+				ConfigParser::getSingleton()->parse("config.txt");
+				init_config();
+			}
+			break;
+		default:
+			break;
+		}
+		return 0;
+	}
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);

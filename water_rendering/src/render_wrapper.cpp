@@ -6,11 +6,13 @@
 
 #include "rend.h"
 #include "utilities.h"
+#include "projected_grid.h"
+#include "shaders.h"
+
 #include "Model.h"
 #include "ModelFactory.h"
-#include "shaders.h"
 #include "ImageManager.h"
-#include "projected_grid.h"
+#include "ConfigParser.h"
 
 //render using GzRender
 GzRender *renderer;
@@ -158,10 +160,10 @@ static int render_skybox(GzRender* in_renderer)
 	in_renderer->p_shader = SkyboxPS;
 
 	GzMatrix m;
-	GzCoord scale = {5.0f, 5.0f, 5.0f};
+	GzCoord scale = {10.0f, 10.0f, 10.0f};
 	GzScaleMat(scale, m);
 	GzPushMatrix(in_renderer, m);
-	GzCoord translate = {0.0f, -2.0f, 0.0f};
+	GzCoord translate = {0.0f, -4.0f, 0.0f};
 	GzTrxMat(translate, m);
 	GzPushMatrix(in_renderer, m);
 
@@ -197,6 +199,11 @@ static int render_skybox(GzRender* in_renderer)
 
 static int render_water_plane(GzRender* in_renderer)
 {
+	generate_water_mesh("water_plane.asc", renderer);
+	if(water_plane_model != NULL)
+		delete water_plane_model;
+	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
+
 	//use the same material for ambient, diffuse and specular
 	GzColor material_color = {0.04f, 0.45f, 0.6f};
 	float coeffcient[3] = {0.8f, 0.8f, 0.5f};
@@ -281,35 +288,35 @@ int render(BackBuffer* bf)
 	return 0;
 }
 
-int init_render(int x_res, int y_res)
+//configurable part
+int init_config()
 {
-	GzDisplay* display;
-	GzNewDisplay(&display, 0, x_res, y_res);
-	GzNewRender(&renderer, GZ_Z_BUFFER_RENDER, display);
+	ConfigParser* parser = ConfigParser::getSingleton();
 
 	//init camera
-	default_camera.position[X] =0.0f;      
-	default_camera.position[Y] = 5.0f;
-	default_camera.position[Z] = -17.3f;
+	parser->getValue( "camera_position_x", &default_camera.position[X]);   
+	parser->getValue( "camera_position_y", &default_camera.position[Y]);   
+	parser->getValue( "camera_position_z", &default_camera.position[Z]);   
+	parser->getValue( "camera_lookat_x", &default_camera.lookat[X]);   
+	parser->getValue( "camera_lookat_y", &default_camera.lookat[Y]);   
+	parser->getValue( "camera_lookat_z", &default_camera.lookat[Z]);   
+	parser->getValue( "camera_worldup_x", &default_camera.worldup[X]);   
+	parser->getValue( "camera_worldup_y", &default_camera.worldup[Y]);   
+	parser->getValue( "camera_worldup_z", &default_camera.worldup[Z]);   
 
-	default_camera.lookat[X] = 0.0f;
-	default_camera.lookat[Y] = 0.0f;
-	default_camera.lookat[Z] = 0.0f;
-
-	default_camera.worldup[X] = 0.0f;
-	default_camera.worldup[Y] = 0.961f;
-	default_camera.worldup[Z] = 0.278f;
-
-	default_camera.FOV = 53.7;              // degrees 
+	parser->getValue("camera_FOV", &default_camera.FOV);          // degrees 
 
 	GzPutCamera(renderer, &default_camera);
 
-
 	//setup light
+	renderer->numlights = 0;
 	GzToken     nameListLights[10];
 	GzPointer   valueListLights[10];
 	GzLight ambient_light = {{0.0f, 0.0f, 0.0f}, {0.9f, 0.9f, 0.9f}};
 	GzLight direction_light = { {-0.2f, 0.2f, 0.8f} , {0.9f, 0.9f, 0.9f}};
+	parser->getValue("direction_light_direction_x", &direction_light.direction[0]);
+	parser->getValue("direction_light_direction_y", &direction_light.direction[1]);
+	parser->getValue("direction_light_direction_z", &direction_light.direction[2]);
 	Normalize(direction_light.direction);
 	float smoothness = 128;
 	nameListLights[0] = GZ_AMBIENT_LIGHT;
@@ -320,8 +327,33 @@ int init_render(int x_res, int y_res)
 	valueListLights[2] = (GzPointer)&smoothness;
 	GzPutAttribute(renderer, 3, nameListLights, valueListLights);
 
-	generate_water_mesh("water_plane.asc", renderer);
-	water_plane_model = ModelFactory::CreateModel("water_plane.asc", "asc");
+	need_update = true;
+
+	//Get the mirrored island
+	if(mirror_island_model)
+		delete mirror_island_model;
+	mirror_island_model = ModelFactory::CreateModel("island.obj", "obj");
+	for (int num=0; num<mirror_island_model->GetTriangleCount(); num++)
+	{
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] =2 - mirror_island_model->GetData(num).vertices[0][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] =2 - mirror_island_model->GetData(num).vertices[1][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] =2 - mirror_island_model->GetData(num).vertices[2][Y];
+
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[0][Y] = - mirror_island_model->GetData(num).normals[0][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[1][Y] = - mirror_island_model->GetData(num).normals[1][Y];
+		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[2][Y] = - mirror_island_model->GetData(num).normals[2][Y];
+	}
+
+	return 0;
+}
+
+int init_render(int x_res, int y_res)
+{
+	GzDisplay* display;
+	GzNewDisplay(&display, 0, x_res, y_res);
+	GzNewRender(&renderer, GZ_Z_BUFFER_RENDER, display);
+
+	init_config();
 
 	island_model = ModelFactory::CreateModel("island.obj", "obj");
 	island_scale[0] = 0.8f;
@@ -334,18 +366,7 @@ int init_render(int x_res, int y_res)
 	island_rotation[1] = 0.0f;
 	island_rotation[2] = 0.0f;
 
-	//Get the mirrored island
-	mirror_island_model = ModelFactory::CreateModel("island.obj", "obj");
-	for (int num=0; num<mirror_island_model->GetTriangleCount(); num++)
-	{
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[0][Y] =2 - mirror_island_model->GetData(num).vertices[0][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[1][Y] =2 - mirror_island_model->GetData(num).vertices[1][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).vertices[2][Y] =2 - mirror_island_model->GetData(num).vertices[2][Y];
 
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[0][Y] = - mirror_island_model->GetData(num).normals[0][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[1][Y] = - mirror_island_model->GetData(num).normals[1][Y];
-		const_cast <Triangle &> (mirror_island_model->GetData(num)).normals[2][Y] = - mirror_island_model->GetData(num).normals[2][Y];
-	}
 
 	//setup skybox
 	skybox_model = ModelFactory::CreateModel("skybox.asc", "asc");
@@ -360,7 +381,7 @@ int init_render(int x_res, int y_res)
 	GzNewDisplay(&refraction_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 	GzNewDisplay(&reflection_display, GZ_Z_BUFFER_RENDER, x_res, y_res);
 
-	need_update = true;
+	
 
 	return 0;
 }
